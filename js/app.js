@@ -938,9 +938,41 @@ document.addEventListener('DOMContentLoaded', () => {
         badge.style.cssText = 'margin-bottom:12px;font-size:0.8rem;color:var(--color-text-light);';
         grid.appendChild(badge);
 
-        // Build the skills grid, pre-selecting AI-recommended skills
         const recommendedSkills = ds.skills || [];
+        const recommendedTopics = ds.topics || [];
+        const allCatalogSkillNames = new Set();
 
+        // Collect all catalog skill names for comparison
+        allDomains.forEach(d => d.skills.forEach(s => allCatalogSkillNames.add(s.name)));
+
+        // Find AI-recommended skills NOT in the catalog — these are custom/new
+        const customSkills = recommendedSkills.filter(s => !allCatalogSkillNames.has(s));
+        const customTopics = recommendedTopics.filter(t => !allCatalogSkillNames.has(t));
+
+        // Show AI-recommended custom skills FIRST (these are the most relevant)
+        if (customSkills.length > 0 || customTopics.length > 0) {
+            const customGroup = document.createElement('div');
+            customGroup.className = 'wizard-domain-group';
+            customGroup.style.borderColor = 'var(--color-primary)';
+            customGroup.innerHTML = '<div class="wizard-domain-title" style="color:var(--color-primary);">AI-Recommended Skills</div>';
+
+            const customRow = document.createElement('div');
+            customRow.className = 'wizard-domain-skills';
+
+            [...customSkills, ...customTopics].forEach(skillName => {
+                const tag = document.createElement('span');
+                tag.className = 'wizard-skill-tag selected';
+                tag.textContent = skillName;
+                tag.dataset.skill = skillName;
+                tag.addEventListener('click', () => tag.classList.toggle('selected'));
+                customRow.appendChild(tag);
+            });
+
+            customGroup.appendChild(customRow);
+            grid.appendChild(customGroup);
+        }
+
+        // Then show catalog domains with any matching skills pre-selected
         allDomains.forEach(domain => {
             const group = document.createElement('div');
             group.className = 'wizard-domain-group';
@@ -978,25 +1010,30 @@ document.addEventListener('DOMContentLoaded', () => {
         wizardState.selectedSkills = selected;
 
         const settings = Settings.get();
-        const useAI = Settings.isAIConfigured();
         let outlines = null;
 
-        if (useAI) {
-            // Show loading state
-            const container = document.getElementById('wizard-outlines-list');
-            container.innerHTML = '<div class="wizard-loading"><div class="spinner"></div><p>AI is generating lab outlines...</p></div>';
-            setWizardStep(3);
+        // Always use AI for outline generation (AI is required)
+        const container = document.getElementById('wizard-outlines-list');
+        container.innerHTML = '<div class="wizard-loading"><div class="spinner"></div><p>AI is generating lab outlines based on your program design...</p></div>';
+        setWizardStep(3);
 
-            outlines = await Settings.aiGenerateOutlines(
-                selected,
-                wizardState.platform,
-                wizardState.audienceLevel
-            );
-        }
+        // Pass the design summary context so the AI generates relevant labs
+        outlines = await Settings.aiGenerateOutlines(
+            selected,
+            wizardState.platform,
+            wizardState.audienceLevel,
+            wizardState.designSummary  // pass full design context
+        );
 
-        if (!outlines) {
-            // Fall back to built-in catalog
-            outlines = Catalog.generateLabOutlines(selected, wizardState.platform);
+        if (!outlines || outlines.length === 0) {
+            // If AI failed, try catalog as last resort for any matching skills
+            const catalogOutlines = Catalog.generateLabOutlines(selected, wizardState.platform);
+            if (catalogOutlines.length > 0) {
+                outlines = catalogOutlines;
+            } else {
+                container.innerHTML = '<div class="wizard-loading"><p style="color:var(--color-danger);">Failed to generate lab outlines. Please go back and try again, or check your AI provider settings.</p></div>';
+                return;
+            }
         }
 
         // Apply density and duration adjustments
@@ -1008,7 +1045,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         wizardState.labOutlines = outlines;
         renderWizardOutlines();
-        if (!useAI) setWizardStep(3);
     });
 
     function renderWizardOutlines() {

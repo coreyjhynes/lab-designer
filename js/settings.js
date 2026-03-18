@@ -351,9 +351,10 @@ Analyze this program and return the JSON with matched skills.`;
 
     /**
      * Use AI to generate lab outlines for a set of skills.
+     * designContext: optional object from the conversation design summary for richer context.
      * Returns array in the same format as Catalog.generateLabOutlines() or null on failure.
      */
-    async function aiGenerateOutlines(skills, platform, audienceLevel) {
+    async function aiGenerateOutlines(skills, platform, audienceLevel, designContext) {
         const settings = get();
         const refContext = buildReferenceContext();
         const targetDuration = settings.targetLabDuration || 45;
@@ -368,24 +369,41 @@ Analyze this program and return the JSON with matched skills.`;
             densityInstruction = 'Generate about 1 lab per skill.';
         }
 
-        const systemPrompt = `You are a hands-on lab designer for cloud technology training. Generate detailed lab outlines for the given skills.
+        // Build design context block if available
+        let designBlock = '';
+        if (designContext) {
+            designBlock = `
+PROGRAM DESIGN CONTEXT (from the conversation with the user):
+- Program: ${designContext.programName || 'N/A'}
+- Description: ${designContext.description || 'N/A'}
+- Audience: ${designContext.audienceSize || '?'} learners, ${designContext.audienceLevel || 'beginner'} level
+- Platform: ${designContext.platform || platform}
+- Notes: ${designContext.notes || 'None'}
+
+The labs you generate MUST be directly relevant to this program description. Create labs that specifically teach the skills and topics described above — do NOT generate generic cloud labs. The lab titles, descriptions, tasks, and activities should all be tailored to this specific program.`;
+        }
+
+        const systemPrompt = `You are an expert hands-on lab designer. Generate detailed, practical lab outlines for the given skills and program context.
+
+CRITICAL: Generate labs that are SPECIFIC to the skills requested. If the skills are about AI agents, generate labs about building AI agents. If about Kubernetes, generate Kubernetes labs. Do NOT substitute generic cloud infrastructure labs.
 
 ${densityInstruction}
 Target duration per lab: approximately ${targetDuration} minutes.
 Audience level: ${audienceLevel}.
 Platform: ${platform}.
+${designBlock}
 
-You MUST respond with a valid JSON array only — no markdown, no explanation. Each lab object must have this structure:
+You MUST respond with a valid JSON array only — no markdown fences, no explanation text. Each lab object must follow this exact structure:
 {
   "enabled": true,
-  "skillName": "Exact Skill Name",
-  "title": "Lab Title",
-  "description": "One paragraph description",
+  "skillName": "The Skill Name This Lab Teaches",
+  "title": "Specific, Descriptive Lab Title",
+  "description": "One paragraph describing what the learner will accomplish",
   "duration": ${targetDuration},
   "difficulty": "${audienceLevel === 'mixed' ? 'intermediate' : audienceLevel}",
   "platform": "${platform}",
   "scoring": [
-    { "id": "resource-validation", "name": "Resource Validation", "description": "Automated check verifies resources exist." }
+    { "id": "task-completion", "name": "Task Completion", "description": "Learner marks each task as complete." }
   ],
   "environment": {
     "vms": [{ "name": "VMName", "os": "windows-server|windows-11|ubuntu|centos" }],
@@ -397,19 +415,26 @@ You MUST respond with a valid JSON array only — no markdown, no explanation. E
     {
       "name": "Task Name",
       "activities": [
-        { "title": "Activity title", "instructions": "Step-by-step instructions for this activity." }
+        { "title": "Activity title", "instructions": "Detailed step-by-step instructions for this activity." }
       ]
     }
   ]
 }
 
-Valid scoring IDs: resource-validation, task-completion, script-check, screenshot, quiz.
-Valid OS values: windows-server, windows-11, ubuntu, centos.`;
+RULES:
+- The "skillName" field MUST exactly match one of the requested skills.
+- Lab titles must be specific to the skill (e.g., "Build a Customer Service Agent with Azure AI Foundry" NOT "Deploy a Virtual Machine").
+- Each lab must have 2-4 tasks with 2-3 activities each.
+- Activities must have real, actionable instructions (not placeholders).
+- Environment should list the actual cloud resources needed for this specific lab.
+- Valid scoring IDs: resource-validation, task-completion, script-check, screenshot, quiz.
+- Valid OS values: windows-server, windows-11, ubuntu, centos.
+- If a lab doesn't need VMs, use an empty array for vms.`;
 
         const userPrompt = `Generate lab outlines for these skills: ${skills.join(', ')}
 ${refContext}
 
-Return the JSON array of lab outlines.`;
+Return ONLY the JSON array.`;
 
         const response = await callAI(systemPrompt, userPrompt);
         if (!response) return null;
