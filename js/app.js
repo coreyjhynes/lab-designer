@@ -737,7 +737,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- Program Builder Wizard ----
     let wizardState = {
         description: '',
-        audienceSize: 20,
         audienceLevel: 'beginner',
         platform: 'azure',
         selectedSkills: [],
@@ -811,7 +810,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('chat-input').disabled = busy;
     }
 
-    function initChat() {
+    async function initChat() {
         wizardState.chatMessages = [];
         wizardState.designSummary = null;
         document.getElementById('chat-messages').innerHTML = '';
@@ -819,13 +818,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('chat-input').value = '';
         setChatBusy(false);
 
-        // Add welcome message
-        addChatBubble('assistant',
-            'Welcome to the Lab Program Builder! Tell me about the training program you want to create.\n\n' +
-            'For example: "I need to train 100 IT administrators on deploying and securing resources in Azure" or ' +
-            '"Build a Kubernetes bootcamp for developers moving to containerized applications."\n\n' +
-            'What program would you like to build?'
-        );
+        // Load welcome message from prompts.md
+        const welcome = await Settings.getWelcomeMessage();
+        addChatBubble('assistant', welcome);
         document.getElementById('chat-input').focus();
     }
 
@@ -843,7 +838,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setChatBusy(true);
         showTyping(true);
 
-        const systemPrompt = Settings.getDesignConversationSystemPrompt();
+        const systemPrompt = await Settings.getDesignConversationSystemPrompt();
         const response = await Settings.callAIConversation(systemPrompt, wizardState.chatMessages);
 
         showTyping(false);
@@ -880,7 +875,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const ds = wizardState.designSummary;
                 wizardState.description = ds.description || '';
                 wizardState.platform = ds.platform || 'azure';
-                wizardState.audienceSize = ds.audienceSize || 20;
                 wizardState.audienceLevel = ds.audienceLevel || 'beginner';
 
                 const container = document.getElementById('chat-messages');
@@ -891,7 +885,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="summary-field"><strong>Program</strong><span>${escHtml(ds.programName || '')}</span></div>
                     <div class="summary-field"><strong>Description</strong><span>${escHtml(ds.description || '')}</span></div>
                     <div class="summary-field"><strong>Platform</strong><span>${escHtml(ds.platform || 'auto')}</span></div>
-                    <div class="summary-field"><strong>Audience</strong><span>${ds.audienceSize || '?'} learners, ${escHtml(ds.audienceLevel || 'beginner')} level</span></div>
+                    <div class="summary-field"><strong>Level</strong><span>${escHtml(ds.audienceLevel || 'beginner')}</span></div>
                     <div class="summary-field"><strong>Recommended Skills</strong><span>${(ds.skills || []).map(s => escHtml(s)).join(', ')}</span></div>
                     ${ds.topics && ds.topics.length ? `<div class="summary-field"><strong>Additional Topics</strong><span>${ds.topics.map(t => escHtml(t)).join(', ')}</span></div>` : ''}
                     ${ds.notes ? `<div class="summary-field"><strong>Notes</strong><span>${escHtml(ds.notes)}</span></div>` : ''}
@@ -1166,6 +1160,8 @@ document.addEventListener('DOMContentLoaded', () => {
             ? buildScript.slice(0, 2000) + '\n\n# ... (script continues) ...'
             : buildScript;
 
+        const skillListHTML = uniqueSkills.map(s => `<span class="tag selected" style="display:inline-block;margin:2px;">${escHtml(s)}</span>`).join('');
+
         document.getElementById('wizard-summary').innerHTML = `
             <div class="wizard-summary-stats">
                 <div class="wizard-summary-stat">
@@ -1180,14 +1176,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="stat-number">${durationStr}</div>
                     <div class="stat-label">Total Duration</div>
                 </div>
-                <div class="wizard-summary-stat">
-                    <div class="stat-number">${wizardState.audienceSize}</div>
-                    <div class="stat-label">Learners</div>
-                </div>
             </div>
+
             <div class="wizard-summary-course-name form-group">
                 <label for="wizard-course-name">Course Name</label>
                 <input type="text" id="wizard-course-name" value="${escHtml(courseName)}">
+            </div>
+
+            <div class="wizard-outline-section-title">What will be created</div>
+            <div class="pre-creation-summary">
+                <div class="pre-creation-item">
+                    <span class="pre-creation-icon">&#9733;</span>
+                    <div>
+                        <strong>1 Course</strong>
+                        <p>${escHtml(courseName)} with ${Object.keys(moduleMapPreview(enabledLabs)).length} modules</p>
+                    </div>
+                </div>
+                <div class="pre-creation-item">
+                    <span class="pre-creation-icon">&#9881;</span>
+                    <div>
+                        <strong>${enabledLabs.length} Labs</strong>
+                        <p>${durationStr} total instruction time</p>
+                    </div>
+                </div>
+                <div class="pre-creation-item">
+                    <span class="pre-creation-icon">&#10003;</span>
+                    <div>
+                        <strong>${uniqueSkills.length} Skills</strong>
+                        <p>${skillListHTML}</p>
+                    </div>
+                </div>
             </div>
 
             <div class="wizard-outline-section-title">Unified Environment (shared across all labs)</div>
@@ -1214,6 +1232,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => btn.textContent = 'Copy Script', 2000);
             });
         });
+    }
+
+    function moduleMapPreview(labs) {
+        const map = {};
+        labs.forEach(o => {
+            if (!map[o.skillName]) map[o.skillName] = [];
+            map[o.skillName].push(o.title);
+        });
+        return map;
     }
 
     // Step 4: Save everything
@@ -1285,7 +1312,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const course = Store.saveCourse({
             name: courseName,
-            description: `Generated program for ${wizardState.audienceSize} learners (${wizardState.audienceLevel} level).\n\n${wizardState.description}`,
+            description: `Generated program (${wizardState.audienceLevel} level).\n\n${wizardState.description}`,
             level: wizardState.audienceLevel === 'mixed' ? 'beginner' : wizardState.audienceLevel,
             status: 'draft',
             prerequisites: '',
