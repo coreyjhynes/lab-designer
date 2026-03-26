@@ -11,7 +11,7 @@
 </head>
 <body>
     <div id="app">
-        <!-- Sidebar Navigation -->
+        <!-- Left Sidebar: Phase Navigation -->
         <aside id="sidebar">
             <div class="sidebar-header">
                 <a href="https://www.skillable.com" target="_blank" rel="noopener noreferrer" class="sidebar-logo-link">
@@ -19,458 +19,336 @@
                 </a>
                 <h1>Lab Designer</h1>
             </div>
+
+            <!-- Project selector -->
+            <div class="sidebar-project">
+                <label class="sidebar-label">Project</label>
+                <select id="project-select">
+                    <option value="">New Project...</option>
+                </select>
+                <button class="btn btn-sm btn-ghost" id="btn-new-project" title="New Project">+</button>
+            </div>
+
+            <!-- Phase navigation -->
             <nav>
                 <ul id="nav-list">
-                    <li><a href="#" data-view="lab-designer" class="nav-link">
-                        <span class="nav-icon">&#9889;</span> Lab Designer
-                    </a></li>
-                    <li><a href="#" data-view="dashboard" class="nav-link active">
-                        <span class="nav-icon">&#9632;</span> Dashboard
-                    </a></li>
-                    <li><a href="#" data-view="courses" class="nav-link">
-                        <span class="nav-icon">&#9733;</span> Courses
-                    </a></li>
-                    <li><a href="#" data-view="labs" class="nav-link">
-                        <span class="nav-icon">&#9881;</span> Labs
-                    </a></li>
-                    <li><a href="#" data-view="skills" class="nav-link">
-                        <span class="nav-icon">&#10003;</span> Skills & Objectives
-                    </a></li>
-                    <li><a href="#" data-view="settings" class="nav-link">
-                        <span class="nav-icon">&#9881;</span> Settings
-                    </a></li>
+                    <li>
+                        <a href="#" data-phase="define" class="nav-link active">
+                            <span class="nav-icon">1</span>
+                            <div class="nav-text">
+                                <span class="nav-title">Define</span>
+                                <span class="nav-subtitle">Goals, audiences & objectives</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-phase="organize" class="nav-link">
+                            <span class="nav-icon">2</span>
+                            <div class="nav-text">
+                                <span class="nav-title">Organize</span>
+                                <span class="nav-subtitle">Curriculum & framework mapping</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-phase="labs" class="nav-link">
+                            <span class="nav-icon">3</span>
+                            <div class="nav-text">
+                                <span class="nav-title">Labs</span>
+                                <span class="nav-subtitle">Activities, tasks & scoring</span>
+                            </div>
+                        </a>
+                    </li>
+                    <li class="nav-divider"></li>
+                    <li>
+                        <a href="#" data-phase="settings" class="nav-link">
+                            <span class="nav-icon">&#9881;</span>
+                            <div class="nav-text">
+                                <span class="nav-title">Settings</span>
+                                <span class="nav-subtitle">AI provider & preferences</span>
+                            </div>
+                        </a>
+                    </li>
                 </ul>
             </nav>
+
             <div class="sidebar-footer">
-                <button id="btn-export-skillable" class="btn btn-outline btn-sm">Export Labs (Skillable)</button>
-                <button id="btn-export" class="btn btn-outline btn-sm">Export All Data</button>
-                <button id="btn-import" class="btn btn-outline btn-sm">Import Data</button>
+                <button id="btn-export" class="btn btn-outline btn-sm">Export Project</button>
+                <button id="btn-import" class="btn btn-outline btn-sm">Import Project</button>
                 <input type="file" id="import-file" accept=".json" style="display:none">
                 <div class="sidebar-copyright">
-                    <div class="version-info">v1.0.18 &middot; Build 2026-03-19 12:08</div>
+                    <div class="version-info">v2.0.0</div>
                     &copy; 2025 Skillable Inc. All rights reserved.
                 </div>
             </div>
         </aside>
 
-        <!-- Main Content -->
+        <!-- Main Content Area -->
         <main id="main-content">
-            <!-- Dashboard View -->
-            <section id="view-dashboard" class="view active">
-                <div class="view-header">
-                    <h2>Dashboard</h2>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number" id="stat-courses">0</div>
-                        <div class="stat-label">Courses</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="stat-labs">0</div>
-                        <div class="stat-label">Labs</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="stat-skills">0</div>
-                        <div class="stat-label">Skills</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="stat-duration">0h</div>
-                        <div class="stat-label">Total Duration</div>
-                    </div>
-                </div>
-                <div class="recent-section">
-                    <h3>Recent Labs</h3>
-                    <div id="recent-labs" class="card-list"></div>
-                </div>
-            </section>
 
-            <!-- Courses View -->
-            <section id="view-courses" class="view">
-                <div class="view-header">
-                    <h2>Courses</h2>
-                    <button class="btn btn-primary" id="btn-add-course">+ New Course</button>
-                </div>
-                <div id="courses-list" class="card-list"></div>
-            </section>
-
-            <!-- Course Editor (shown when editing a course) -->
-            <section id="view-course-editor" class="view">
-                <div class="view-header">
-                    <button class="btn btn-ghost" id="btn-back-courses">&larr; Back to Courses</button>
-                    <h2 id="course-editor-title">Edit Course</h2>
-                </div>
-                <form id="course-form" class="form-layout">
-                    <input type="hidden" id="course-id">
-                    <div class="form-group">
-                        <label for="course-name">Course Name</label>
-                        <input type="text" id="course-name" required placeholder="e.g., Azure Administrator Fundamentals">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="course-level">Level</label>
-                            <select id="course-level">
-                                <option value="beginner">Beginner</option>
-                                <option value="intermediate">Intermediate</option>
-                                <option value="advanced">Advanced</option>
-                                <option value="expert">Expert</option>
-                            </select>
+            <!-- ==================== PHASE 1: DEFINE ==================== -->
+            <section id="phase-define" class="phase active">
+                <div class="phase-layout">
+                    <!-- Chat Panel (left) -->
+                    <div class="chat-panel">
+                        <div class="chat-header">
+                            <h2>Define Your Program</h2>
+                            <p class="chat-subtitle">Tell me about what your learners need to be able to do. Upload documents or describe your goals conversationally.</p>
                         </div>
-                        <div class="form-group">
-                            <label for="course-status">Status</label>
-                            <select id="course-status">
-                                <option value="draft">Draft</option>
-                                <option value="review">In Review</option>
-                                <option value="published">Published</option>
-                                <option value="archived">Archived</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="course-description">Description</label>
-                        <textarea id="course-description" rows="3" placeholder="Course overview and goals..."></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="course-prerequisites">Prerequisites (comma-separated course names)</label>
-                        <input type="text" id="course-prerequisites" placeholder="e.g., Intro to Cloud, Networking Basics">
-                    </div>
-                    <div class="form-group">
-                        <label>Skills Covered</label>
-                        <div id="course-skills-selector" class="tag-selector"></div>
-                    </div>
-
-                    <!-- Module/Lab sequencing -->
-                    <div class="form-group">
-                        <label>Modules & Labs (drag to reorder)</label>
-                        <div id="course-modules" class="modules-container"></div>
-                        <div class="module-actions">
-                            <button type="button" class="btn btn-secondary" id="btn-add-module">+ Add Module</button>
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Save Course</button>
-                        <button type="button" class="btn btn-danger" id="btn-delete-course">Delete Course</button>
-                    </div>
-                </form>
-            </section>
-
-            <!-- Labs View -->
-            <section id="view-labs" class="view">
-                <div class="view-header">
-                    <h2>Labs</h2>
-                    <button class="btn btn-primary" id="btn-add-lab">+ New Lab</button>
-                </div>
-                <div class="filter-bar">
-                    <input type="text" id="lab-search" placeholder="Search labs..." class="search-input">
-                    <select id="lab-filter-skill" class="filter-select">
-                        <option value="">All Skills</option>
-                    </select>
-                </div>
-                <div id="labs-list" class="card-list"></div>
-            </section>
-
-            <!-- Lab Editor -->
-            <section id="view-lab-editor" class="view">
-                <div class="view-header">
-                    <button class="btn btn-ghost" id="btn-back-labs">&larr; Back to Labs</button>
-                    <h2 id="lab-editor-title">Edit Lab</h2>
-                </div>
-                <form id="lab-form" class="form-layout">
-                    <input type="hidden" id="lab-id">
-
-                    <!-- Tab navigation for lab editor sections -->
-                    <div class="tab-bar">
-                        <button type="button" class="tab-btn active" data-tab="lab-basics">Basics</button>
-                        <button type="button" class="tab-btn" data-tab="lab-environment">Environment</button>
-                        <button type="button" class="tab-btn" data-tab="lab-steps">Steps</button>
-                        <button type="button" class="tab-btn" data-tab="lab-build-script">Build Script</button>
-                    </div>
-
-                    <!-- Basics Tab -->
-                    <div id="tab-lab-basics" class="tab-panel active">
-                        <div class="form-group">
-                            <label for="lab-title">Lab Title</label>
-                            <input type="text" id="lab-title" required placeholder="e.g., Deploy a Virtual Machine in Azure">
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="lab-duration">Estimated Duration (minutes)</label>
-                                <input type="number" id="lab-duration" min="5" step="5" value="30">
-                            </div>
-                            <div class="form-group">
-                                <label for="lab-difficulty">Difficulty</label>
-                                <select id="lab-difficulty">
-                                    <option value="beginner">Beginner</option>
-                                    <option value="intermediate">Intermediate</option>
-                                    <option value="advanced">Advanced</option>
-                                    <option value="expert">Expert</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="lab-status">Status</label>
-                                <select id="lab-status">
-                                    <option value="draft">Draft</option>
-                                    <option value="review">In Review</option>
-                                    <option value="published">Published</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="lab-description">Description</label>
-                            <textarea id="lab-description" rows="3" placeholder="What will the learner accomplish in this lab?"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="lab-objectives">Learning Objectives (one per line)</label>
-                            <textarea id="lab-objectives" rows="4" placeholder="After completing this lab, the learner will be able to:&#10;- Create a virtual machine&#10;- Configure networking"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label>Skills Taught</label>
-                            <div id="lab-skills-selector" class="tag-selector"></div>
-                        </div>
-                    </div>
-
-                    <!-- Environment Tab (Skillable-style) -->
-                    <div id="tab-lab-environment" class="tab-panel">
-                        <h3>Cloud & VM Environment</h3>
-                        <div class="form-group">
-                            <label for="lab-platform">Cloud Platform</label>
-                            <select id="lab-platform">
-                                <option value="">None</option>
-                                <option value="azure">Microsoft Azure</option>
-                                <option value="aws">Amazon Web Services</option>
-                                <option value="gcp">Google Cloud Platform</option>
-                                <option value="multi">Multi-Cloud</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Virtual Machines</label>
-                            <div id="lab-vms" class="resource-list"></div>
-                            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-vm">+ Add VM</button>
-                        </div>
-                        <div class="form-group">
-                            <label>Cloud Resources</label>
-                            <div id="lab-cloud-resources" class="resource-list"></div>
-                            <button type="button" class="btn btn-secondary btn-sm" id="btn-add-resource">+ Add Cloud Resource</button>
-                        </div>
-                        <div class="form-group">
-                            <label for="lab-credentials">Credentials / Access Info</label>
-                            <textarea id="lab-credentials" rows="3" placeholder="e.g., Username: LabUser, Password provided at launch, Subscription: Lab-Sub-01"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="lab-env-notes">Environment Notes</label>
-                            <textarea id="lab-env-notes" rows="3" placeholder="Any special setup or teardown requirements..."></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Steps Tab -->
-                    <div id="tab-lab-steps" class="tab-panel">
-                        <h3>Lab Instructions</h3>
-                        <div id="lab-steps-list" class="steps-container"></div>
-                        <button type="button" class="btn btn-secondary" id="btn-add-step">+ Add Step</button>
-                    </div>
-
-                    <!-- Build Script Tab -->
-                    <div id="tab-lab-build-script" class="tab-panel">
-                        <h3>Environment Build Script</h3>
-                        <p style="color:var(--color-text-light);font-size:0.85rem;margin-bottom:12px;">
-                            PowerShell script that runs at lab start (Skillable LifeCycleAction) to provision the cloud environment.
-                        </p>
-                        <div class="form-group">
-                            <label for="lab-build-script">Build Script (PowerShell)</label>
-                            <textarea id="lab-build-script" rows="20" class="build-script-editor" placeholder="# No build script configured. Use Lab Designer to auto-generate one, or paste your own PowerShell script here."></textarea>
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Save Lab</button>
-                        <button type="button" class="btn btn-danger" id="btn-delete-lab">Delete Lab</button>
-                    </div>
-                </form>
-            </section>
-
-            <!-- Lab Designer Wizard -->
-            <section id="view-lab-designer" class="view">
-                <div class="view-header">
-                    <h2>Lab Designer</h2>
-                </div>
-
-                <!-- AI Required Gate (shown when no AI provider configured) -->
-                <div id="wizard-ai-gate" class="wizard-ai-gate" style="display:none;">
-                    <div class="wizard-ai-gate-icon">&#9881;</div>
-                    <h3>AI Provider Required</h3>
-                    <p>The Lab Designer uses AI to design your lab program through a guided conversation. Configure an AI provider in Settings to get started.</p>
-                    <button class="btn btn-primary" id="wizard-goto-settings">Open Settings</button>
-                </div>
-
-                <!-- Wizard step indicator -->
-                <div class="wizard-steps" id="wizard-steps-bar">
-                    <div class="wizard-step active" data-step="1"><span class="wizard-step-num">1</span> Design</div>
-                    <div class="wizard-step" data-step="2"><span class="wizard-step-num">2</span> Skills</div>
-                    <div class="wizard-step" data-step="3"><span class="wizard-step-num">3</span> Lab Outlines</div>
-                    <div class="wizard-step" data-step="4"><span class="wizard-step-num">4</span> Generate</div>
-                </div>
-
-                <!-- Step 1: Conversational Design -->
-                <div class="wizard-panel active" id="wizard-step-1">
-                    <div class="chat-container" id="chat-container">
-                        <div class="chat-messages" id="chat-messages">
-                            <!-- Messages populated by JS -->
-                        </div>
-                        <div class="chat-typing" id="chat-typing" style="display:none;">
+                        <div class="chat-messages" id="define-chat-messages"></div>
+                        <div class="chat-typing" id="define-chat-typing" style="display:none;">
                             <div class="chat-bubble assistant">
                                 <div class="typing-indicator"><span></span><span></span><span></span></div>
                             </div>
                         </div>
-                    </div>
-                    <div class="chat-input-bar">
-                        <textarea id="chat-input" rows="2" placeholder="Describe your training program..." class="chat-input"></textarea>
-                        <button class="btn btn-primary chat-send" id="chat-send">Send</button>
-                    </div>
-                    <div class="wizard-actions" id="wizard-step1-actions" style="display:none;">
-                        <button class="btn btn-ghost" id="wizard-restart-chat">Start Over</button>
-                        <button class="btn btn-primary btn-lg" id="wizard-accept-design">Accept Design &amp; Continue &rarr;</button>
-                    </div>
-                </div>
-
-                <!-- Step 2: Confirm Skills -->
-                <div class="wizard-panel" id="wizard-step-2">
-                    <h3>Confirm Skills &amp; Topics</h3>
-                    <p class="wizard-hint">We identified the following skills from your description. Toggle skills on or off, then proceed to generate lab outlines.</p>
-                    <div id="wizard-skills-grid" class="wizard-skills-grid"></div>
-                    <div class="wizard-actions">
-                        <button class="btn btn-ghost" id="wizard-back-1">&larr; Back</button>
-                        <button class="btn btn-primary" id="wizard-generate-outlines">Generate Lab Outlines &rarr;</button>
-                    </div>
-                </div>
-
-                <!-- Step 3: Review Lab Outlines -->
-                <div class="wizard-panel" id="wizard-step-3">
-                    <h3>Review Lab Outlines</h3>
-                    <p class="wizard-hint">Review and customize the recommended labs. Toggle labs on or off, expand to see tasks, activities, environment, and scoring.</p>
-                    <div id="wizard-outlines-list" class="wizard-outlines-list"></div>
-                    <div class="wizard-actions">
-                        <button class="btn btn-ghost" id="wizard-back-2">&larr; Back</button>
-                        <button class="btn btn-primary" id="wizard-go-generate">Review Summary &rarr;</button>
-                    </div>
-                </div>
-
-                <!-- Step 4: Generate & Save -->
-                <div class="wizard-panel" id="wizard-step-4">
-                    <h3>Generate &amp; Save</h3>
-                    <div id="wizard-summary" class="wizard-summary"></div>
-                    <div class="wizard-actions">
-                        <button class="btn btn-ghost" id="wizard-back-3">&larr; Back</button>
-                        <button class="btn btn-primary btn-lg" id="wizard-save">Create Course, Labs &amp; Skills</button>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Skills View -->
-            <section id="view-skills" class="view">
-                <div class="view-header">
-                    <h2>Skills & Objectives</h2>
-                    <button class="btn btn-primary" id="btn-add-skill">+ New Skill</button>
-                </div>
-                <div id="skills-list" class="tag-cloud"></div>
-            </section>
-            <!-- Settings View -->
-            <section id="view-settings" class="view">
-                <div class="view-header">
-                    <h2>Settings</h2>
-                </div>
-                <div class="settings-layout">
-
-                    <!-- AI Provider -->
-                    <div class="settings-section">
-                        <div class="settings-section-header">
-                            <h3>AI Provider</h3>
-                            <span class="settings-section-hint">Configure an AI model to enhance skill analysis and lab outline generation.</span>
+                        <div class="chat-input-bar">
+                            <div class="chat-attachments" id="define-attachments"></div>
+                            <div class="chat-input-row">
+                                <button class="btn btn-ghost chat-upload-btn" id="define-upload-btn" title="Upload documents">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                                </button>
+                                <textarea id="define-chat-input" rows="2" placeholder="Describe your training program, target audience, or paste objectives..." class="chat-input"></textarea>
+                                <button class="btn btn-primary chat-send" id="define-chat-send">Send</button>
+                            </div>
+                            <input type="file" id="define-file-input" multiple accept=".txt,.md,.pdf,.docx,.json,.csv,.xlsx" style="display:none">
                         </div>
-                        <div class="form-group">
-                            <label for="settings-ai-provider">Provider</label>
-                            <select id="settings-ai-provider">
-                                <option value="builtin">Built-in (Keyword Matching)</option>
-                                <option value="claude">Claude API (Anthropic)</option>
-                                <option value="openai">OpenAI API</option>
-                                <option value="custom">Custom Endpoint</option>
-                            </select>
+                    </div>
+
+                    <!-- Context Panel (right) -->
+                    <div class="context-panel" id="define-context">
+                        <div class="context-header">
+                            <h3>Uploaded Materials</h3>
                         </div>
-                        <div id="settings-ai-fields" class="settings-ai-fields" style="display:none;">
-                            <div class="form-group">
-                                <label for="settings-api-key">API Key</label>
-                                <div class="api-key-row">
-                                    <input type="password" id="settings-api-key" placeholder="sk-... or your API key">
-                                    <button type="button" class="btn btn-outline btn-sm" id="settings-toggle-key">Show</button>
+                        <div class="context-body">
+                            <div id="define-uploads-list" class="uploads-list">
+                                <div class="empty-state">
+                                    <p>No documents uploaded yet.</p>
+                                    <p class="hint">Upload job task analyses, job descriptions, learning objectives, or other source documents.</p>
                                 </div>
+                            </div>
+                            <div id="define-summary" class="define-summary" style="display:none;">
+                                <h4>Extracted Goals</h4>
+                                <div id="define-goals-list" class="goals-list"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== PHASE 2: ORGANIZE ==================== -->
+            <section id="phase-organize" class="phase">
+                <div class="phase-layout">
+                    <!-- Chat Panel (left) -->
+                    <div class="chat-panel">
+                        <div class="chat-header">
+                            <h2>Organize Curriculum</h2>
+                            <p class="chat-subtitle">Let's structure your content into courses, modules, lessons, and topics. Optionally map to a skill framework.</p>
+                        </div>
+                        <div class="chat-messages" id="organize-chat-messages"></div>
+                        <div class="chat-typing" id="organize-chat-typing" style="display:none;">
+                            <div class="chat-bubble assistant">
+                                <div class="typing-indicator"><span></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                        <div class="chat-input-bar">
+                            <div class="chat-input-row">
+                                <textarea id="organize-chat-input" rows="2" placeholder="Ask about curriculum structure, framework mapping, or refine the outline..." class="chat-input"></textarea>
+                                <button class="btn btn-primary chat-send" id="organize-chat-send">Send</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Context Panel (right): Outline + Framework -->
+                    <div class="context-panel" id="organize-context">
+                        <div class="context-tabs">
+                            <button class="context-tab active" data-tab="outline">Curriculum Outline</button>
+                            <button class="context-tab" data-tab="framework">Skill Framework</button>
+                        </div>
+
+                        <!-- Outline Tab -->
+                        <div class="context-tab-panel active" id="tab-outline">
+                            <div id="curriculum-outline" class="curriculum-outline">
+                                <div class="empty-state">
+                                    <p>No curriculum generated yet.</p>
+                                    <p class="hint">Complete Phase 1 or ask me to generate a curriculum structure from your goals.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Framework Tab -->
+                        <div class="context-tab-panel" id="tab-framework">
+                            <div class="framework-selector">
+                                <label>Select a Skill Framework (optional)</label>
+                                <select id="framework-select">
+                                    <option value="">None - Skip framework mapping</option>
+                                    <optgroup label="Cybersecurity">
+                                        <option value="nice">NICE Workforce Framework (NIST SP 800-181)</option>
+                                        <option value="dcwf">DoD Cyber Workforce Framework (DCWF)</option>
+                                        <option value="mitre-attack">MITRE ATT&CK</option>
+                                        <option value="comptia-security">CompTIA Security+ / CySA+ / CASP+</option>
+                                    </optgroup>
+                                    <optgroup label="Cloud Computing">
+                                        <option value="comptia-cloud">CompTIA Cloud+</option>
+                                        <option value="aws-certs">AWS Certification Framework</option>
+                                        <option value="azure-certs">Microsoft Azure Certification Framework</option>
+                                        <option value="gcp-certs">Google Cloud Certification Framework</option>
+                                    </optgroup>
+                                    <optgroup label="Data, AI & Machine Learning">
+                                        <option value="edison">EDISON Data Science Framework (EDSF)</option>
+                                        <option value="unesco-ai">UNESCO AI Competency Framework</option>
+                                        <option value="oecd-ai">OECD AI Literacy Framework</option>
+                                    </optgroup>
+                                    <optgroup label="Software Engineering">
+                                        <option value="swebok">SWEBOK v4 (IEEE)</option>
+                                        <option value="swecom">SWECOM - SE Competency Model (IEEE)</option>
+                                    </optgroup>
+                                    <optgroup label="DevOps & SRE">
+                                        <option value="dasa">DASA DevOps Competence Model</option>
+                                        <option value="sre">Google SRE Competency Matrix</option>
+                                    </optgroup>
+                                    <optgroup label="IT Operations & Infrastructure">
+                                        <option value="comptia-infra">CompTIA A+ / Server+ / Linux+</option>
+                                        <option value="itil">ITIL 4</option>
+                                    </optgroup>
+                                    <optgroup label="Networking">
+                                        <option value="comptia-network">CompTIA Network+</option>
+                                        <option value="cisco-ccna">Cisco CCNA</option>
+                                    </optgroup>
+                                    <optgroup label="Project Management">
+                                        <option value="gapps">GAPPS Project Management Standards</option>
+                                        <option value="ipma-icb">IPMA ICB4</option>
+                                    </optgroup>
+                                    <optgroup label="Cross-Domain">
+                                        <option value="sfia">SFIA 9 - Skills Framework for the Information Age</option>
+                                        <option value="ecf">European e-Competence Framework (e-CF 4.0)</option>
+                                        <option value="onet">O*NET Occupational Framework</option>
+                                    </optgroup>
+                                </select>
+                                <div class="framework-upload">
+                                    <span>Or</span>
+                                    <button class="btn btn-secondary btn-sm" id="btn-upload-framework">Upload Custom Framework</button>
+                                    <input type="file" id="framework-file-input" accept=".json,.csv,.xlsx,.pdf,.txt" style="display:none">
+                                </div>
+                            </div>
+                            <div id="framework-mapping" class="framework-mapping">
+                                <div class="empty-state">
+                                    <p>Select a framework above to see mapping suggestions.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== PHASE 3: LABS ==================== -->
+            <section id="phase-labs" class="phase">
+                <div class="phase-layout">
+                    <!-- Chat Panel (left) -->
+                    <div class="chat-panel">
+                        <div class="chat-header">
+                            <h2>Design Labs</h2>
+                            <p class="chat-subtitle">Let's place hands-on labs into your curriculum. Each lab has 3-5 activities with scorable tasks (45-90 min).</p>
+                        </div>
+                        <div class="chat-messages" id="labs-chat-messages"></div>
+                        <div class="chat-typing" id="labs-chat-typing" style="display:none;">
+                            <div class="chat-bubble assistant">
+                                <div class="typing-indicator"><span></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                        <div class="chat-input-bar">
+                            <div class="chat-input-row">
+                                <textarea id="labs-chat-input" rows="2" placeholder="Ask about lab placement, activities, scoring, or refine lab designs..." class="chat-input"></textarea>
+                                <button class="btn btn-primary chat-send" id="labs-chat-send">Send</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Context Panel (right): Lab Outline -->
+                    <div class="context-panel" id="labs-context">
+                        <div class="context-header">
+                            <h3>Lab Plan</h3>
+                            <div class="lab-stats" id="lab-stats"></div>
+                        </div>
+                        <div class="context-body">
+                            <div id="labs-outline" class="labs-outline">
+                                <div class="empty-state">
+                                    <p>No labs designed yet.</p>
+                                    <p class="hint">Complete the curriculum outline in Phase 2, then I'll recommend where to place labs.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== SETTINGS ==================== -->
+            <section id="phase-settings" class="phase">
+                <div class="settings-container">
+                    <div class="view-header">
+                        <h2>Settings</h2>
+                    </div>
+                    <div class="settings-layout">
+                        <!-- AI Provider -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3>AI Provider</h3>
+                                <span class="settings-section-hint">Lab Designer requires an AI provider for conversational design.</span>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-ai-provider">Provider</label>
+                                <select id="settings-ai-provider">
+                                    <option value="claude">Claude API (Anthropic)</option>
+                                    <option value="openai">OpenAI API</option>
+                                    <option value="custom">Custom Endpoint</option>
+                                </select>
+                            </div>
+                            <div id="settings-ai-fields" class="settings-ai-fields">
+                                <div class="form-group">
+                                    <label for="settings-api-key">API Key</label>
+                                    <div class="api-key-row">
+                                        <input type="password" id="settings-api-key" placeholder="sk-... or your API key">
+                                        <button type="button" class="btn btn-outline btn-sm" id="settings-toggle-key">Show</button>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="settings-model">Model</label>
+                                        <input type="text" id="settings-model" placeholder="e.g., claude-sonnet-4-20250514">
+                                    </div>
+                                    <div class="form-group" id="settings-endpoint-group" style="display:none;">
+                                        <label for="settings-endpoint">Endpoint URL</label>
+                                        <input type="text" id="settings-endpoint" placeholder="https://your-api.example.com/v1/chat/completions">
+                                    </div>
+                                </div>
+                                <div class="form-actions" style="border:none;padding:0;margin-top:8px;">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="settings-test-connection">Test Connection</button>
+                                    <span id="settings-test-result" class="settings-test-result"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Lab Defaults -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3>Lab Defaults</h3>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="settings-model">Model</label>
-                                    <input type="text" id="settings-model" placeholder="e.g., claude-sonnet-4-20250514 or gpt-4o">
+                                    <label for="settings-target-duration">Target Lab Duration (minutes)</label>
+                                    <input type="number" id="settings-target-duration" min="30" max="120" step="5" value="60">
+                                    <span class="form-hint">Labs will target 45-90 minutes by default.</span>
                                 </div>
-                                <div class="form-group" id="settings-endpoint-group" style="display:none;">
-                                    <label for="settings-endpoint">Endpoint URL</label>
-                                    <input type="text" id="settings-endpoint" placeholder="https://your-api.example.com/v1/chat/completions">
-                                </div>
-                            </div>
-                            <div class="form-actions" style="border:none;padding:0;margin-top:8px;">
-                                <button type="button" class="btn btn-secondary btn-sm" id="settings-test-connection">Test Connection</button>
-                                <span id="settings-test-result" class="settings-test-result"></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Reference Materials -->
-                    <div class="settings-section">
-                        <div class="settings-section-header">
-                            <h3>Reference Materials</h3>
-                            <span class="settings-section-hint">Attach documentation or source material to inform lab program design. These are sent as context when using an AI provider.</span>
-                        </div>
-                        <div id="settings-references-list" class="settings-references-list"></div>
-                        <div class="settings-ref-actions">
-                            <button type="button" class="btn btn-secondary btn-sm" id="settings-add-url">+ Add URL</button>
-                            <button type="button" class="btn btn-secondary btn-sm" id="settings-add-file">+ Upload File</button>
-                            <input type="file" id="settings-file-input" accept=".txt,.md,.pdf,.docx,.json,.csv" style="display:none">
-                        </div>
-                    </div>
-
-                    <!-- Lab Generation Defaults -->
-                    <div class="settings-section">
-                        <div class="settings-section-header">
-                            <h3>Lab Generation Defaults</h3>
-                            <span class="settings-section-hint">Control the average duration and number of labs generated by the Lab Designer wizard.</span>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="settings-target-duration">Target Lab Duration (minutes)</label>
-                                <input type="number" id="settings-target-duration" min="15" max="120" step="5" value="45">
-                                <span class="form-hint">Each generated lab will target this duration.</span>
-                            </div>
-                            <div class="form-group">
-                                <label for="settings-default-difficulty">Default Difficulty</label>
-                                <select id="settings-default-difficulty">
-                                    <option value="beginner">Beginner</option>
-                                    <option value="intermediate">Intermediate</option>
-                                    <option value="advanced">Advanced</option>
-                                    <option value="mixed">Mixed Levels</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="settings-lab-density">Lab Density</label>
-                            <div class="density-slider-container">
-                                <input type="range" id="settings-lab-density" min="0" max="2" step="1" value="1" class="density-slider">
-                                <div class="density-labels">
-                                    <span class="density-label">Light<br><small>Fewer, longer labs</small></span>
-                                    <span class="density-label">Moderate<br><small>Balanced</small></span>
-                                    <span class="density-label">Heavy<br><small>Many shorter labs</small></span>
+                                <div class="form-group">
+                                    <label for="settings-activities-per-lab">Activities per Lab</label>
+                                    <input type="number" id="settings-activities-per-lab" min="2" max="8" step="1" value="4">
+                                    <span class="form-hint">Typical: 3-5 activities per lab.</span>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-primary" id="settings-save">Save Settings</button>
+                        <div class="form-actions">
+                            <button type="button" class="btn btn-primary" id="settings-save">Save Settings</button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -489,11 +367,10 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="js/catalog.js"></script>
+    <script src="js/frameworks.js"></script>
     <script src="js/store.js"></script>
     <script src="js/settings.js"></script>
-    <script src="js/exporter.js"></script>
+    <script src="js/chat.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

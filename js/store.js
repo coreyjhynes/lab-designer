@@ -1,168 +1,147 @@
 /**
- * store.js — Data models and localStorage persistence for Lab Designer
+ * store.js — Data persistence for Lab Designer v2.
+ * Manages projects, curriculum, lab blueprints, and conversation history.
  */
 
 const Store = (() => {
-    const STORAGE_KEY = 'labdesigner_data';
-
-    const defaultData = () => ({
-        courses: [],
-        labs: [],
-        skills: [],
-    });
-
-    function load() {
-        try {
-            const raw = localStorage.getItem(STORAGE_KEY);
-            if (raw) return JSON.parse(raw);
-        } catch (e) {
-            console.error('Failed to load data from localStorage:', e);
-        }
-        return defaultData();
-    }
-
-    function save(data) {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        } catch (e) {
-            console.error('Failed to save data:', e);
-        }
-    }
-
-    let data = load();
+    const STORAGE_KEY = 'labdesigner_v2';
 
     function uid() {
         return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     }
 
-    // ---- Skills ----
-    function getSkills() { return data.skills; }
-
-    function addSkill(name) {
-        name = name.trim();
-        if (!name || data.skills.find(s => s.name.toLowerCase() === name.toLowerCase())) return null;
-        const skill = { id: uid(), name };
-        data.skills.push(skill);
-        save(data);
-        return skill;
+    function now() {
+        return new Date().toISOString();
     }
 
-    function removeSkill(id) {
-        data.skills = data.skills.filter(s => s.id !== id);
-        // Also remove from labs and courses
-        data.labs.forEach(lab => {
-            lab.skillIds = lab.skillIds.filter(sid => sid !== id);
-        });
-        data.courses.forEach(c => {
-            c.skillIds = c.skillIds.filter(sid => sid !== id);
-        });
-        save(data);
-    }
-
-    function getSkillUsageCount(skillId) {
-        let count = 0;
-        data.labs.forEach(lab => { if (lab.skillIds.includes(skillId)) count++; });
-        data.courses.forEach(c => { if (c.skillIds.includes(skillId)) count++; });
-        return count;
-    }
-
-    // ---- Labs ----
-    function getLabs() { return data.labs; }
-
-    function getLab(id) { return data.labs.find(l => l.id === id) || null; }
-
-    function saveLab(lab) {
-        if (!lab.id) {
-            lab.id = uid();
-            lab.createdAt = new Date().toISOString();
-            data.labs.push(lab);
-        } else {
-            const idx = data.labs.findIndex(l => l.id === lab.id);
-            if (idx >= 0) data.labs[idx] = lab;
-            else data.labs.push(lab);
-        }
-        lab.updatedAt = new Date().toISOString();
-        save(data);
-        return lab;
-    }
-
-    function deleteLab(id) {
-        data.labs = data.labs.filter(l => l.id !== id);
-        // Remove lab from any course modules
-        data.courses.forEach(course => {
-            course.modules.forEach(mod => {
-                mod.labIds = mod.labIds.filter(lid => lid !== id);
-            });
-        });
-        save(data);
-    }
-
-    // ---- Courses ----
-    function getCourses() { return data.courses; }
-
-    function getCourse(id) { return data.courses.find(c => c.id === id) || null; }
-
-    function saveCourse(course) {
-        if (!course.id) {
-            course.id = uid();
-            course.createdAt = new Date().toISOString();
-            data.courses.push(course);
-        } else {
-            const idx = data.courses.findIndex(c => c.id === course.id);
-            if (idx >= 0) data.courses[idx] = course;
-            else data.courses.push(course);
-        }
-        course.updatedAt = new Date().toISOString();
-        save(data);
-        return course;
-    }
-
-    function deleteCourse(id) {
-        data.courses = data.courses.filter(c => c.id !== id);
-        save(data);
-    }
-
-    // ---- Stats ----
-    function getStats() {
-        const totalMinutes = data.labs.reduce((sum, l) => sum + (parseInt(l.duration) || 0), 0);
+    // ── Default project structure ──
+    function emptyProject(name) {
         return {
-            courses: data.courses.length,
-            labs: data.labs.length,
-            skills: data.skills.length,
-            duration: totalMinutes,
+            id: uid(),
+            name: name || 'Untitled Project',
+            createdAt: now(),
+            updatedAt: now(),
+            // Phase 1: Define
+            uploads: [],        // { id, name, type, size, content }
+            goals: [],          // extracted goals/objectives strings
+            defineChat: [],     // { role: 'user'|'assistant', content, timestamp }
+            // Phase 2: Organize
+            curriculum: null,   // nested tree: { type, title, children[] }
+            framework: null,    // selected framework id or 'custom'
+            frameworkData: null, // custom framework content if uploaded
+            organizeChat: [],
+            // Phase 3: Labs
+            labBlueprints: [],  // { id, title, description, duration, placement, activities[] }
+            labsChat: [],
         };
     }
 
-    // ---- Import / Export ----
-    function exportAll() {
-        return JSON.stringify(data, null, 2);
-    }
-
-    function importAll(jsonString) {
+    // ── Storage helpers ──
+    function loadAll() {
         try {
-            const imported = JSON.parse(jsonString);
-            if (imported.courses && imported.labs && imported.skills) {
-                data = imported;
-                save(data);
-                return true;
-            }
-        } catch (e) {
-            console.error('Import failed:', e);
+            const raw = localStorage.getItem(STORAGE_KEY);
+            return raw ? JSON.parse(raw) : { projects: [], activeProjectId: null };
+        } catch {
+            return { projects: [], activeProjectId: null };
         }
-        return false;
     }
 
-    function addSkillIfNotExists(name) {
-        name = name.trim();
-        const existing = data.skills.find(s => s.name.toLowerCase() === name.toLowerCase());
-        if (existing) return existing;
-        return addSkill(name);
+    function saveAll(data) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    // ── Projects ──
+    function getProjects() {
+        return loadAll().projects;
+    }
+
+    function getActiveProject() {
+        const data = loadAll();
+        if (!data.activeProjectId || data.projects.length === 0) return null;
+        return data.projects.find(p => p.id === data.activeProjectId) || null;
+    }
+
+    function setActiveProject(id) {
+        const data = loadAll();
+        data.activeProjectId = id;
+        saveAll(data);
+    }
+
+    function createProject(name) {
+        const data = loadAll();
+        const project = emptyProject(name);
+        data.projects.push(project);
+        data.activeProjectId = project.id;
+        saveAll(data);
+        return project;
+    }
+
+    function updateProject(project) {
+        const data = loadAll();
+        const idx = data.projects.findIndex(p => p.id === project.id);
+        if (idx >= 0) {
+            project.updatedAt = now();
+            data.projects[idx] = project;
+            saveAll(data);
+        }
+        return project;
+    }
+
+    function deleteProject(id) {
+        const data = loadAll();
+        data.projects = data.projects.filter(p => p.id !== id);
+        if (data.activeProjectId === id) {
+            data.activeProjectId = data.projects.length ? data.projects[0].id : null;
+        }
+        saveAll(data);
+    }
+
+    // ── Chat helpers ──
+    function addChatMessage(projectId, phase, role, content) {
+        const data = loadAll();
+        const project = data.projects.find(p => p.id === projectId);
+        if (!project) return;
+        const chatKey = phase + 'Chat'; // defineChat, organizeChat, labsChat
+        if (!project[chatKey]) project[chatKey] = [];
+        project[chatKey].push({ role, content, timestamp: now() });
+        project.updatedAt = now();
+        saveAll(data);
+    }
+
+    function getChatHistory(projectId, phase) {
+        const project = getProjects().find(p => p.id === projectId);
+        if (!project) return [];
+        return project[phase + 'Chat'] || [];
+    }
+
+    // ── Export / Import ──
+    function exportProject(projectId) {
+        const project = getProjects().find(p => p.id === projectId);
+        return project ? JSON.stringify(project, null, 2) : null;
+    }
+
+    function importProject(json) {
+        const data = loadAll();
+        const project = JSON.parse(json);
+        project.id = uid(); // new ID to avoid collision
+        project.importedAt = now();
+        data.projects.push(project);
+        data.activeProjectId = project.id;
+        saveAll(data);
+        return project;
     }
 
     return {
-        getSkills, addSkill, addSkillIfNotExists, removeSkill, getSkillUsageCount,
-        getLabs, getLab, saveLab, deleteLab,
-        getCourses, getCourse, saveCourse, deleteCourse,
-        getStats, exportAll, importAll,
+        uid,
+        getProjects,
+        getActiveProject,
+        setActiveProject,
+        createProject,
+        updateProject,
+        deleteProject,
+        addChatMessage,
+        getChatHistory,
+        exportProject,
+        importProject,
     };
 })();
