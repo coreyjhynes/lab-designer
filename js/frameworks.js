@@ -48,10 +48,18 @@ const Frameworks = (() => {
         { id: 'onet', name: 'O*NET Occupational Framework', abbrev: 'O*NET', publisher: 'U.S. Department of Labor', domain: 'Cross-Domain', description: '923 occupations with structured skills, knowledge, abilities, and task data. Updated quarterly.' },
     ];
 
+    // Custom/uploaded frameworks stored separately
+    const customCatalog = [];
+
+    // Combined view of built-in + custom frameworks
+    function _combined() {
+        return [...catalog, ...customCatalog];
+    }
+
     // Group by domain
     function getDomains() {
         const domains = {};
-        catalog.forEach(fw => {
+        _combined().forEach(fw => {
             if (!domains[fw.domain]) domains[fw.domain] = [];
             domains[fw.domain].push(fw);
         });
@@ -59,22 +67,154 @@ const Frameworks = (() => {
     }
 
     function getById(id) {
-        return catalog.find(fw => fw.id === id) || null;
+        return _combined().find(fw => fw.id === id) || null;
     }
 
     function getAll() {
-        return [...catalog];
+        return _combined();
     }
 
     function search(query) {
         const q = query.toLowerCase();
-        return catalog.filter(fw =>
+        return _combined().filter(fw =>
             fw.name.toLowerCase().includes(q) ||
-            fw.abbrev.toLowerCase().includes(q) ||
+            (fw.abbrev && fw.abbrev.toLowerCase().includes(q)) ||
             fw.domain.toLowerCase().includes(q) ||
             fw.description.toLowerCase().includes(q)
         );
     }
 
-    return { getDomains, getById, getAll, search };
+    /**
+     * registerCustom — Adds a custom framework at runtime.
+     * @param {Object} frameworkObj - { id, name, organization, domain, description, competencies: [] }
+     * @returns {Object} the registered framework object
+     */
+    function registerCustom(frameworkObj) {
+        const required = ['id', 'name', 'organization', 'domain', 'description'];
+        for (const field of required) {
+            if (!frameworkObj[field]) {
+                throw new Error(`registerCustom: missing required field "${field}"`);
+            }
+        }
+        if (getById(frameworkObj.id)) {
+            throw new Error(`registerCustom: framework with id "${frameworkObj.id}" already exists`);
+        }
+        const fw = {
+            id: frameworkObj.id,
+            name: frameworkObj.name,
+            abbrev: frameworkObj.abbrev || frameworkObj.name,
+            publisher: frameworkObj.organization,
+            domain: frameworkObj.domain,
+            description: frameworkObj.description,
+            competencies: Array.isArray(frameworkObj.competencies) ? frameworkObj.competencies : [],
+            custom: true
+        };
+        customCatalog.push(fw);
+        return fw;
+    }
+
+    /**
+     * toPromptContext — Returns a text summary suitable for AI prompt injection.
+     * @param {string} [frameworkId] - If provided, summarize one framework; otherwise summarize all.
+     * @returns {string}
+     */
+    function toPromptContext(frameworkId) {
+        if (frameworkId) {
+            const fw = getById(frameworkId);
+            if (!fw) return `Framework "${frameworkId}" not found.`;
+            return _formatPromptBlock(fw);
+        }
+        // Summarize all frameworks grouped by domain
+        const domains = getDomains();
+        const lines = ['# Available Skill Frameworks', ''];
+        for (const [domain, frameworks] of Object.entries(domains)) {
+            lines.push(`## ${domain}`);
+            frameworks.forEach(fw => {
+                lines.push(_formatPromptBlock(fw));
+                lines.push('');
+            });
+        }
+        return lines.join('\n');
+    }
+
+    function _formatPromptBlock(fw) {
+        const parts = [
+            `**${fw.name}**`,
+            `Organization: ${fw.publisher}`,
+            `Domain: ${fw.domain}`,
+            `Description: ${fw.description}`
+        ];
+        if (fw.competencies && fw.competencies.length > 0) {
+            parts.push('Competency Areas: ' + fw.competencies.join(', '));
+        }
+        return parts.join('\n');
+    }
+
+    /**
+     * parseUploadedFramework — Parses an uploaded framework file into standard format.
+     * @param {string} content - Raw file content
+     * @param {string} fileType - 'json', 'csv', or 'text'
+     * @returns {Object} { name, competencies: [] } (partial framework object)
+     */
+    function parseUploadedFramework(content, fileType) {
+        const type = (fileType || '').toLowerCase().replace('.', '');
+
+        if (type === 'json') {
+            const parsed = JSON.parse(content);
+            return {
+                name: parsed.name || 'Untitled Framework',
+                competencies: Array.isArray(parsed.competencies) ? parsed.competencies : []
+            };
+        }
+
+        if (type === 'csv') {
+            const lines = content.trim().split(/\r?\n/);
+            if (lines.length === 0) return { name: 'Untitled Framework', competencies: [] };
+            // First row is header with competency names
+            const header = lines[0].split(',').map(s => s.trim()).filter(Boolean);
+            return {
+                name: 'Uploaded CSV Framework',
+                competencies: header
+            };
+        }
+
+        // Plain text: extract lines as competency/skill names
+        if (type === 'text' || type === 'txt' || !type) {
+            const lines = content.trim().split(/\r?\n/)
+                .map(line => line.replace(/^[-*•\d.)\s]+/, '').trim())
+                .filter(line => line.length > 0 && line.length < 200);
+            return {
+                name: 'Uploaded Text Framework',
+                competencies: lines
+            };
+        }
+
+        throw new Error(`parseUploadedFramework: unsupported file type "${fileType}"`);
+    }
+
+    /**
+     * listCustom — Returns only the custom/uploaded frameworks.
+     * @returns {Array}
+     */
+    function listCustom() {
+        return [...customCatalog];
+    }
+
+    /**
+     * removeCustom — Removes a custom framework by ID.
+     * @param {string} frameworkId
+     * @returns {boolean} true if removed, false if not found
+     */
+    function removeCustom(frameworkId) {
+        const idx = customCatalog.findIndex(fw => fw.id === frameworkId);
+        if (idx === -1) return false;
+        customCatalog.splice(idx, 1);
+        return true;
+    }
+
+    return {
+        getDomains, getById, getAll, search,
+        registerCustom, toPromptContext, parseUploadedFramework,
+        listCustom, removeCustom
+    };
 })();
