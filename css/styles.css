@@ -28,8 +28,8 @@
     --color-surface: #ffffff;
 
     /* Sidebar — Skillable dark green with grid */
-    --color-sidebar: #00493a;
-    --color-sidebar-hover: #005c49;
+    --color-sidebar: #0A3E28;
+    --color-sidebar-hover: #0d4f33;
     --color-sidebar-active: #00D082;
     --color-sidebar-text: rgba(255, 255, 255, 0.85);
     --color-sidebar-text-muted: rgba(255, 255, 255, 0.45);
@@ -112,7 +112,7 @@ body {
 #sidebar::after {
     content: '';
     position: absolute;
-    top: 76px; /* 56px header + 20px gap */
+    top: 86px; /* 56px header + 30px title margin + gap */
     left: 0;
     right: 0;
     bottom: 0;
@@ -136,7 +136,6 @@ body {
 
 .sidebar-logo {
     height: 30px;
-    filter: brightness(0) invert(1);
     transition: opacity var(--transition);
 }
 
@@ -146,6 +145,7 @@ body {
 
 .sidebar-title-block {
     padding: 0 20px 12px;
+    margin-top: 30px;
     position: relative;
     z-index: 1;
 }
