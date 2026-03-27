@@ -135,7 +135,8 @@ body {
 }
 
 .sidebar-logo {
-    height: 30px;
+    width: calc(var(--sidebar-width) - 40px);
+    height: auto;
     transition: opacity var(--transition);
 }
 
