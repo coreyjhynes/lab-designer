@@ -415,7 +415,7 @@ body {
 }
 
 .sidebar-copyright {
-    text-align: center;
+    text-align: left;
     font-size: 11px;
     color: var(--color-sidebar-text-muted);
     margin-top: 8px;
