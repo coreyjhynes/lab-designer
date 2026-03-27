@@ -414,6 +414,24 @@ body {
     gap: 6px;
 }
 
+.sidebar-settings-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px;
+    gap: 0;
+}
+
+.sidebar-settings-icon {
+    font-size: 22px;
+    color: var(--color-sidebar-text-muted);
+    transition: color var(--transition);
+    line-height: 1;
+}
+
+.sidebar-settings-btn:hover .sidebar-settings-icon {
+    color: #fff;
+}
+
 .sidebar-copyright {
     text-align: left;
     font-size: 11px;
