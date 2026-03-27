@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lab Designer</title>
+    <title>Lab Designer by Skillable</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -11,7 +11,7 @@
 </head>
 <body>
     <div id="app">
-        <!-- Left Sidebar: Phase Navigation -->
+        <!-- Left Sidebar -->
         <aside id="sidebar">
             <div class="sidebar-header">
                 <a href="https://www.skillable.com" target="_blank" rel="noopener noreferrer" class="sidebar-logo-link">
@@ -23,49 +23,60 @@
             <!-- Project selector -->
             <div class="sidebar-project">
                 <label class="sidebar-label">Project</label>
-                <select id="project-select">
-                    <option value="">New Project...</option>
-                </select>
-                <button class="btn btn-sm btn-ghost" id="btn-new-project" title="New Project">+</button>
+                <div class="sidebar-project-row">
+                    <select id="project-select">
+                        <option value="">New Project...</option>
+                    </select>
+                    <button class="btn btn-sm btn-ghost" id="btn-new-project" title="New Project">+</button>
+                    <button class="btn btn-sm btn-ghost btn-danger" id="btn-delete-project" title="Delete Project">&times;</button>
+                </div>
             </div>
 
             <!-- Phase navigation -->
             <nav>
                 <ul id="nav-list">
                     <li>
-                        <a href="#" data-phase="define" class="nav-link active">
+                        <a href="#" data-section="phase1" class="nav-link active">
                             <span class="nav-icon">1</span>
                             <div class="nav-text">
-                                <span class="nav-title">Define</span>
-                                <span class="nav-subtitle">Goals, audiences & objectives</span>
+                                <span class="nav-title">Audiences &amp; Objectives</span>
                             </div>
+                            <span class="nav-progress" id="nav-progress-phase1">&#9675;</span>
                         </a>
                     </li>
                     <li>
-                        <a href="#" data-phase="organize" class="nav-link">
+                        <a href="#" data-section="phase2" class="nav-link">
                             <span class="nav-icon">2</span>
                             <div class="nav-text">
-                                <span class="nav-title">Organize</span>
-                                <span class="nav-subtitle">Curriculum & framework mapping</span>
+                                <span class="nav-title">Design &amp; Configure</span>
                             </div>
+                            <span class="nav-progress" id="nav-progress-phase2">&#9675;</span>
                         </a>
                     </li>
                     <li>
-                        <a href="#" data-phase="labs" class="nav-link">
+                        <a href="#" data-section="phase3" class="nav-link">
                             <span class="nav-icon">3</span>
                             <div class="nav-text">
-                                <span class="nav-title">Labs</span>
-                                <span class="nav-subtitle">Activities, tasks & scoring</span>
+                                <span class="nav-title">Organize &amp; Finalize</span>
                             </div>
+                            <span class="nav-progress" id="nav-progress-phase3">&#9675;</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" data-section="phase4" class="nav-link">
+                            <span class="nav-icon">4</span>
+                            <div class="nav-text">
+                                <span class="nav-title">Architect &amp; Build</span>
+                            </div>
+                            <span class="nav-progress" id="nav-progress-phase4">&#9675;</span>
                         </a>
                     </li>
                     <li class="nav-divider"></li>
                     <li>
-                        <a href="#" data-phase="settings" class="nav-link">
+                        <a href="#" data-section="settings" class="nav-link">
                             <span class="nav-icon">&#9881;</span>
                             <div class="nav-text">
                                 <span class="nav-title">Settings</span>
-                                <span class="nav-subtitle">AI provider & preferences</span>
                             </div>
                         </a>
                     </li>
@@ -77,7 +88,7 @@
                 <button id="btn-import" class="btn btn-outline btn-sm">Import Project</button>
                 <input type="file" id="import-file" accept=".json" style="display:none">
                 <div class="sidebar-copyright">
-                    <div class="version-info">v2.0.0</div>
+                    <div class="version-info">v3.0.0</div>
                     &copy; 2025 Skillable Inc. All rights reserved.
                 </div>
             </div>
@@ -86,203 +97,159 @@
         <!-- Main Content Area -->
         <main id="main-content">
 
-            <!-- ==================== PHASE 1: DEFINE ==================== -->
-            <section id="phase-define" class="phase active">
+            <!-- ==================== PHASE 1: Audiences & Objectives ==================== -->
+            <section id="section-phase1" class="phase-section active">
                 <div class="phase-layout">
-                    <!-- Chat Panel (left) -->
+                    <!-- Chat Panel (left, 60%) -->
                     <div class="chat-panel">
                         <div class="chat-header">
-                            <h2>Define Your Program</h2>
+                            <h2>Audiences &amp; Objectives</h2>
                             <p class="chat-subtitle">Tell me about what your learners need to be able to do. Upload documents or describe your goals conversationally.</p>
                         </div>
-                        <div class="chat-messages" id="define-chat-messages"></div>
-                        <div class="chat-typing" id="define-chat-typing" style="display:none;">
+                        <div class="chat-messages" id="phase1-chat-messages"></div>
+                        <div class="chat-typing" id="phase1-chat-typing" style="display:none;">
                             <div class="chat-bubble assistant">
                                 <div class="typing-indicator"><span></span><span></span><span></span></div>
                             </div>
                         </div>
                         <div class="chat-input-bar">
-                            <div class="chat-attachments" id="define-attachments"></div>
+                            <div class="chat-attachments" id="phase1-attachments"></div>
                             <div class="chat-input-row">
-                                <button class="btn btn-ghost chat-upload-btn" id="define-upload-btn" title="Upload documents">
+                                <button class="btn btn-ghost chat-upload-btn" id="phase1-upload-btn" title="Upload documents">
                                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
                                 </button>
-                                <textarea id="define-chat-input" rows="2" placeholder="Describe your training program, target audience, or paste objectives..." class="chat-input"></textarea>
-                                <button class="btn btn-primary chat-send" id="define-chat-send">Send</button>
+                                <textarea id="phase1-chat-input" rows="2" placeholder="Describe your training program, target audience, or paste objectives..." class="chat-input"></textarea>
+                                <button class="btn btn-primary chat-send" id="phase1-chat-send">Send</button>
                             </div>
-                            <input type="file" id="define-file-input" multiple accept=".txt,.md,.pdf,.docx,.json,.csv,.xlsx" style="display:none">
+                            <input type="file" id="phase1-file-input" multiple accept=".txt,.md,.pdf,.docx,.json,.csv,.xlsx" style="display:none">
+                        </div>
+                    </div>
+
+                    <!-- Context Panel (right, 40%) -->
+                    <div class="context-panel" id="phase1-context">
+                        <div class="empty-state">
+                            <p>Upload materials or chat to get started.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ==================== PHASE 2: Design & Configure ==================== -->
+            <section id="section-phase2" class="phase-section">
+                <div class="phase-layout">
+                    <!-- Chat Panel (left) -->
+                    <div class="chat-panel">
+                        <div class="chat-header">
+                            <h2>Design &amp; Configure</h2>
+                            <p class="chat-subtitle">Let's structure your content into courses, modules, lessons, and topics. Optionally map to a skill framework.</p>
+                        </div>
+                        <div class="chat-messages" id="phase2-chat-messages"></div>
+                        <div class="chat-typing" id="phase2-chat-typing" style="display:none;">
+                            <div class="chat-bubble assistant">
+                                <div class="typing-indicator"><span></span><span></span><span></span></div>
+                            </div>
+                        </div>
+                        <div class="chat-input-bar">
+                            <div class="chat-attachments" id="phase2-attachments"></div>
+                            <div class="chat-input-row">
+                                <button class="btn btn-ghost chat-upload-btn" id="phase2-upload-btn" title="Upload documents">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                                </button>
+                                <textarea id="phase2-chat-input" rows="2" placeholder="Ask about curriculum structure, framework mapping, or refine the outline..." class="chat-input"></textarea>
+                                <button class="btn btn-primary chat-send" id="phase2-chat-send">Send</button>
+                            </div>
+                            <input type="file" id="phase2-file-input" multiple accept=".txt,.md,.pdf,.docx,.json,.csv,.xlsx" style="display:none">
                         </div>
                     </div>
 
                     <!-- Context Panel (right) -->
-                    <div class="context-panel" id="define-context">
-                        <div class="context-header">
-                            <h3>Uploaded Materials</h3>
-                        </div>
-                        <div class="context-body">
-                            <div id="define-uploads-list" class="uploads-list">
-                                <div class="empty-state">
-                                    <p>No documents uploaded yet.</p>
-                                    <p class="hint">Upload job task analyses, job descriptions, learning objectives, or other source documents.</p>
-                                </div>
-                            </div>
-                            <div id="define-summary" class="define-summary" style="display:none;">
-                                <h4>Extracted Goals</h4>
-                                <div id="define-goals-list" class="goals-list"></div>
-                            </div>
+                    <div class="context-panel" id="phase2-context">
+                        <div class="empty-state">
+                            <p>No curriculum generated yet.</p>
+                            <p class="hint">Complete Phase 1 or ask me to generate a curriculum structure from your goals.</p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- ==================== PHASE 2: ORGANIZE ==================== -->
-            <section id="phase-organize" class="phase">
+            <!-- ==================== PHASE 3: Organize & Finalize ==================== -->
+            <section id="section-phase3" class="phase-section">
                 <div class="phase-layout">
                     <!-- Chat Panel (left) -->
                     <div class="chat-panel">
                         <div class="chat-header">
-                            <h2>Organize Curriculum</h2>
-                            <p class="chat-subtitle">Let's structure your content into courses, modules, lessons, and topics. Optionally map to a skill framework.</p>
+                            <h2>Organize &amp; Finalize</h2>
+                            <p class="chat-subtitle">Finalize lab blueprints, approve activities, and generate draft instructions.</p>
                         </div>
-                        <div class="chat-messages" id="organize-chat-messages"></div>
-                        <div class="chat-typing" id="organize-chat-typing" style="display:none;">
+                        <div class="chat-messages" id="phase3-chat-messages"></div>
+                        <div class="chat-typing" id="phase3-chat-typing" style="display:none;">
                             <div class="chat-bubble assistant">
                                 <div class="typing-indicator"><span></span><span></span><span></span></div>
                             </div>
                         </div>
                         <div class="chat-input-bar">
+                            <div class="chat-attachments" id="phase3-attachments"></div>
                             <div class="chat-input-row">
-                                <textarea id="organize-chat-input" rows="2" placeholder="Ask about curriculum structure, framework mapping, or refine the outline..." class="chat-input"></textarea>
-                                <button class="btn btn-primary chat-send" id="organize-chat-send">Send</button>
+                                <button class="btn btn-ghost chat-upload-btn" id="phase3-upload-btn" title="Upload documents">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                                </button>
+                                <textarea id="phase3-chat-input" rows="2" placeholder="Ask about lab placement, activities, scoring, or refine lab designs..." class="chat-input"></textarea>
+                                <button class="btn btn-primary chat-send" id="phase3-chat-send">Send</button>
                             </div>
+                            <input type="file" id="phase3-file-input" multiple accept=".txt,.md,.pdf,.docx,.json,.csv,.xlsx" style="display:none">
                         </div>
                     </div>
 
-                    <!-- Context Panel (right): Outline + Framework -->
-                    <div class="context-panel" id="organize-context">
-                        <div class="context-tabs">
-                            <button class="context-tab active" data-tab="outline">Curriculum Outline</button>
-                            <button class="context-tab" data-tab="framework">Skill Framework</button>
-                        </div>
-
-                        <!-- Outline Tab -->
-                        <div class="context-tab-panel active" id="tab-outline">
-                            <div id="curriculum-outline" class="curriculum-outline">
-                                <div class="empty-state">
-                                    <p>No curriculum generated yet.</p>
-                                    <p class="hint">Complete Phase 1 or ask me to generate a curriculum structure from your goals.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Framework Tab -->
-                        <div class="context-tab-panel" id="tab-framework">
-                            <div class="framework-selector">
-                                <label>Select a Skill Framework (optional)</label>
-                                <select id="framework-select">
-                                    <option value="">None - Skip framework mapping</option>
-                                    <optgroup label="Cybersecurity">
-                                        <option value="nice">NICE Workforce Framework (NIST SP 800-181)</option>
-                                        <option value="dcwf">DoD Cyber Workforce Framework (DCWF)</option>
-                                        <option value="mitre-attack">MITRE ATT&CK</option>
-                                        <option value="comptia-security">CompTIA Security+ / CySA+ / CASP+</option>
-                                    </optgroup>
-                                    <optgroup label="Cloud Computing">
-                                        <option value="comptia-cloud">CompTIA Cloud+</option>
-                                        <option value="aws-certs">AWS Certification Framework</option>
-                                        <option value="azure-certs">Microsoft Azure Certification Framework</option>
-                                        <option value="gcp-certs">Google Cloud Certification Framework</option>
-                                    </optgroup>
-                                    <optgroup label="Data, AI & Machine Learning">
-                                        <option value="edison">EDISON Data Science Framework (EDSF)</option>
-                                        <option value="unesco-ai">UNESCO AI Competency Framework</option>
-                                        <option value="oecd-ai">OECD AI Literacy Framework</option>
-                                    </optgroup>
-                                    <optgroup label="Software Engineering">
-                                        <option value="swebok">SWEBOK v4 (IEEE)</option>
-                                        <option value="swecom">SWECOM - SE Competency Model (IEEE)</option>
-                                    </optgroup>
-                                    <optgroup label="DevOps & SRE">
-                                        <option value="dasa">DASA DevOps Competence Model</option>
-                                        <option value="sre">Google SRE Competency Matrix</option>
-                                    </optgroup>
-                                    <optgroup label="IT Operations & Infrastructure">
-                                        <option value="comptia-infra">CompTIA A+ / Server+ / Linux+</option>
-                                        <option value="itil">ITIL 4</option>
-                                    </optgroup>
-                                    <optgroup label="Networking">
-                                        <option value="comptia-network">CompTIA Network+</option>
-                                        <option value="cisco-ccna">Cisco CCNA</option>
-                                    </optgroup>
-                                    <optgroup label="Project Management">
-                                        <option value="gapps">GAPPS Project Management Standards</option>
-                                        <option value="ipma-icb">IPMA ICB4</option>
-                                    </optgroup>
-                                    <optgroup label="Cross-Domain">
-                                        <option value="sfia">SFIA 9 - Skills Framework for the Information Age</option>
-                                        <option value="ecf">European e-Competence Framework (e-CF 4.0)</option>
-                                        <option value="onet">O*NET Occupational Framework</option>
-                                    </optgroup>
-                                </select>
-                                <div class="framework-upload">
-                                    <span>Or</span>
-                                    <button class="btn btn-secondary btn-sm" id="btn-upload-framework">Upload Custom Framework</button>
-                                    <input type="file" id="framework-file-input" accept=".json,.csv,.xlsx,.pdf,.txt" style="display:none">
-                                </div>
-                            </div>
-                            <div id="framework-mapping" class="framework-mapping">
-                                <div class="empty-state">
-                                    <p>Select a framework above to see mapping suggestions.</p>
-                                </div>
-                            </div>
+                    <!-- Context Panel (right) -->
+                    <div class="context-panel" id="phase3-context">
+                        <div class="empty-state">
+                            <p>No lab blueprints yet.</p>
+                            <p class="hint">Complete Phase 2 to generate lab placements, or use the chat to create lab blueprints.</p>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <!-- ==================== PHASE 3: LABS ==================== -->
-            <section id="phase-labs" class="phase">
+            <!-- ==================== PHASE 4: Architect & Build ==================== -->
+            <section id="section-phase4" class="phase-section">
                 <div class="phase-layout">
                     <!-- Chat Panel (left) -->
                     <div class="chat-panel">
                         <div class="chat-header">
-                            <h2>Design Labs</h2>
-                            <p class="chat-subtitle">Let's place hands-on labs into your curriculum. Each lab has 3-5 activities with scorable tasks (45-90 min).</p>
+                            <h2>Architect &amp; Build</h2>
+                            <p class="chat-subtitle">Design environment templates, generate bills of materials, and write lifecycle scripts.</p>
                         </div>
-                        <div class="chat-messages" id="labs-chat-messages"></div>
-                        <div class="chat-typing" id="labs-chat-typing" style="display:none;">
+                        <div class="chat-messages" id="phase4-chat-messages"></div>
+                        <div class="chat-typing" id="phase4-chat-typing" style="display:none;">
                             <div class="chat-bubble assistant">
                                 <div class="typing-indicator"><span></span><span></span><span></span></div>
                             </div>
                         </div>
                         <div class="chat-input-bar">
+                            <div class="chat-attachments" id="phase4-attachments"></div>
                             <div class="chat-input-row">
-                                <textarea id="labs-chat-input" rows="2" placeholder="Ask about lab placement, activities, scoring, or refine lab designs..." class="chat-input"></textarea>
-                                <button class="btn btn-primary chat-send" id="labs-chat-send">Send</button>
+                                <button class="btn btn-ghost chat-upload-btn" id="phase4-upload-btn" title="Upload documents">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+                                </button>
+                                <textarea id="phase4-chat-input" rows="2" placeholder="Ask about environment setup, VMs, cloud resources, or lifecycle scripts..." class="chat-input"></textarea>
+                                <button class="btn btn-primary chat-send" id="phase4-chat-send">Send</button>
                             </div>
+                            <input type="file" id="phase4-file-input" multiple accept=".txt,.md,.pdf,.docx,.json,.csv,.xlsx" style="display:none">
                         </div>
                     </div>
 
-                    <!-- Context Panel (right): Lab Outline -->
-                    <div class="context-panel" id="labs-context">
-                        <div class="context-header">
-                            <h3>Lab Plan</h3>
-                            <div class="lab-stats" id="lab-stats"></div>
-                        </div>
-                        <div class="context-body">
-                            <div id="labs-outline" class="labs-outline">
-                                <div class="empty-state">
-                                    <p>No labs designed yet.</p>
-                                    <p class="hint">Complete the curriculum outline in Phase 2, then I'll recommend where to place labs.</p>
-                                </div>
-                            </div>
+                    <!-- Context Panel (right) -->
+                    <div class="context-panel" id="phase4-context">
+                        <div class="empty-state">
+                            <p>No environment templates yet.</p>
+                            <p class="hint">Complete Phase 3 or use the chat to generate environment configurations.</p>
                         </div>
                     </div>
                 </div>
             </section>
 
             <!-- ==================== SETTINGS ==================== -->
-            <section id="phase-settings" class="phase">
+            <section id="section-settings" class="phase-section">
                 <div class="settings-container">
                     <div class="view-header">
                         <h2>Settings</h2>
@@ -334,16 +301,103 @@
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label for="settings-target-duration">Target Lab Duration (minutes)</label>
-                                    <input type="number" id="settings-target-duration" min="30" max="120" step="5" value="60">
-                                    <span class="form-hint">Labs will target 45-90 minutes by default.</span>
+                                    <label for="settings-default-seat-time">Default Seat Time (minutes)</label>
+                                    <input type="number" id="settings-default-seat-time" min="15" max="240" step="5" value="45">
                                 </div>
                                 <div class="form-group">
                                     <label for="settings-activities-per-lab">Activities per Lab</label>
-                                    <input type="number" id="settings-activities-per-lab" min="2" max="8" step="1" value="4">
-                                    <span class="form-hint">Typical: 3-5 activities per lab.</span>
+                                    <input type="number" id="settings-activities-per-lab" min="1" max="10" step="1" value="5">
                                 </div>
                             </div>
+                            <div class="form-group">
+                                <label for="settings-default-difficulty">Default Difficulty</label>
+                                <select id="settings-default-difficulty">
+                                    <option value="beginner">Beginner</option>
+                                    <option value="intermediate" selected>Intermediate</option>
+                                    <option value="advanced">Advanced</option>
+                                    <option value="expert">Expert</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Branding -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3>Branding</h3>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-logo-upload">Logo</label>
+                                <div class="logo-upload-row">
+                                    <input type="file" id="settings-logo-upload" accept="image/*">
+                                    <div id="settings-logo-preview" class="logo-preview"></div>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="settings-branding-source-url">Branding Source URL</label>
+                                <input type="text" id="settings-branding-source-url" placeholder="https://your-company.com">
+                                <span class="form-hint">Enter a URL to extract color scheme, fonts, and styling for lab instructions.</span>
+                            </div>
+                            <div class="form-group">
+                                <label>Brand Colors</label>
+                                <div class="color-pickers">
+                                    <div class="color-picker-group">
+                                        <label for="settings-color-primary">Primary</label>
+                                        <input type="color" id="settings-color-primary" value="#1e40af">
+                                    </div>
+                                    <div class="color-picker-group">
+                                        <label for="settings-color-secondary">Secondary</label>
+                                        <input type="color" id="settings-color-secondary" value="#6b7280">
+                                    </div>
+                                    <div class="color-picker-group">
+                                        <label for="settings-color-accent">Accent</label>
+                                        <input type="color" id="settings-color-accent" value="#10b981">
+                                    </div>
+                                    <div class="color-picker-group">
+                                        <label for="settings-color-text">Text</label>
+                                        <input type="color" id="settings-color-text" value="#111827">
+                                    </div>
+                                    <div class="color-picker-group">
+                                        <label for="settings-color-background">Background</label>
+                                        <input type="color" id="settings-color-background" value="#ffffff">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="settings-font-heading">Heading Font</label>
+                                    <input type="text" id="settings-font-heading" placeholder="e.g., Inter, Roboto">
+                                </div>
+                                <div class="form-group">
+                                    <label for="settings-font-body">Body Font</label>
+                                    <input type="text" id="settings-font-body" placeholder="e.g., Inter, Open Sans">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Default Reference Materials -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3>Default Reference Materials</h3>
+                                <span class="settings-section-hint">These references will be automatically included in every new project.</span>
+                            </div>
+                            <div id="settings-references-list" class="references-list"></div>
+                            <div class="form-row" style="margin-top:8px;">
+                                <button type="button" class="btn btn-secondary btn-sm" id="settings-add-ref-url">+ Add URL</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="settings-add-ref-file">+ Add File</button>
+                                <input type="file" id="settings-ref-file-input" accept=".txt,.md,.pdf,.docx,.json,.csv" style="display:none">
+                            </div>
+                        </div>
+
+                        <!-- Import/Export -->
+                        <div class="settings-section">
+                            <div class="settings-section-header">
+                                <h3>Project Data</h3>
+                            </div>
+                            <div class="form-row">
+                                <button type="button" class="btn btn-secondary btn-sm" id="settings-import-project">Import Project</button>
+                                <button type="button" class="btn btn-secondary btn-sm" id="settings-export-project">Export Project</button>
+                            </div>
+                            <input type="file" id="settings-import-file" accept=".json" style="display:none">
                         </div>
 
                         <div class="form-actions">
@@ -367,10 +421,18 @@
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="js/markdown.js"></script>
     <script src="js/frameworks.js"></script>
+    <script src="js/catalog.js"></script>
     <script src="js/store.js"></script>
     <script src="js/settings.js"></script>
     <script src="js/chat.js"></script>
+    <script src="js/exporter.js"></script>
+    <script src="js/phase1.js"></script>
+    <script src="js/phase2.js"></script>
+    <script src="js/phase3.js"></script>
+    <script src="js/phase4.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,37 +1,97 @@
 /**
- * app.js — Main UI logic for Lab Designer v2.
- * Handles navigation, chat interactions, outline rendering, and settings.
+ * app.js — Thin orchestrator for Lab Designer v3.0.0.
+ * Handles navigation, project management, chat dispatch, settings binding,
+ * and import/export. Delegates rendering to Phase1-4 controllers.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
 
     // ── State ──
-    let currentPhase = 'define';
     let currentProject = null;
-    let pendingFiles = []; // files waiting to be sent with next message
+    let currentSection = 'phase1';
+    let pendingFiles = []; // files waiting to be sent with next message (phase 1)
 
-    // ── DOM refs ──
+    // ── DOM helpers ──
     const $ = (sel, ctx) => (ctx || document).querySelector(sel);
     const $$ = (sel, ctx) => [...(ctx || document).querySelectorAll(sel)];
+
+    // ── Phase number mapping ──
+    const PHASE_NUMBERS = { phase1: 1, phase2: 2, phase3: 3, phase4: 4 };
+
+    // ── Phase controllers ──
+    const PHASE_CONTROLLERS = {
+        1: typeof Phase1 !== 'undefined' ? Phase1 : null,
+        2: typeof Phase2 !== 'undefined' ? Phase2 : null,
+        3: typeof Phase3 !== 'undefined' ? Phase3 : null,
+        4: typeof Phase4 !== 'undefined' ? Phase4 : null,
+    };
 
     // ── Initialize ──
     init();
 
     function init() {
+        // Init all phase controllers
+        for (const ctrl of Object.values(PHASE_CONTROLLERS)) {
+            if (ctrl && typeof ctrl.init === 'function') ctrl.init();
+        }
+
+        Settings.load();
         loadOrCreateProject();
+
         bindNavigation();
-        bindSettings();
-        bindChat('define');
-        bindChat('organize');
-        bindChat('labs');
-        bindFileUpload();
         bindProjectControls();
-        bindContextTabs();
-        renderPhase();
-        showWelcomeMessages();
+        bindChat('phase1');
+        bindChat('phase2');
+        bindChat('phase3');
+        bindChat('phase4');
+        bindFileUpload();
+        bindSettings();
+
+        renderAll();
+        renderChatHistory('phase1');
+        showWelcomeIfNeeded();
     }
 
-    // ── Project management ──
+    // ══════════════════════════════════════════════════════════════
+    //  Navigation
+    // ══════════════════════════════════════════════════════════════
+
+    function bindNavigation() {
+        $$('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.dataset.section;
+                if (section) navigateTo(section);
+            });
+        });
+    }
+
+    function navigateTo(section) {
+        currentSection = section;
+
+        // Update nav active states
+        $$('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.section === section));
+
+        // Show/hide sections
+        $$('.phase-section').forEach(s => s.classList.toggle('active', s.id === `section-${section}`));
+
+        // Render the appropriate phase or settings
+        const phaseNum = PHASE_NUMBERS[section];
+        if (phaseNum && currentProject) {
+            const ctrl = PHASE_CONTROLLERS[phaseNum];
+            if (ctrl && typeof ctrl.render === 'function') {
+                ctrl.render(currentProject);
+            }
+            renderChatHistory(section);
+        } else if (section === 'settings') {
+            renderSettings();
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  Project Management
+    // ══════════════════════════════════════════════════════════════
+
     function loadOrCreateProject() {
         currentProject = Store.getActiveProject();
         if (!currentProject) {
@@ -40,133 +100,96 @@ document.addEventListener('DOMContentLoaded', () => {
         renderProjectSelector();
     }
 
+    function loadProject(projectId) {
+        Store.setActiveProject(projectId);
+        currentProject = Store.getActiveProject();
+        clearAllChats();
+        renderAll();
+        restoreAllChats();
+        showWelcomeIfNeeded();
+    }
+
+    function createProject() {
+        const name = prompt('Project name:');
+        if (!name) return;
+        currentProject = Store.createProject(name);
+        renderProjectSelector();
+        clearAllChats();
+        renderAll();
+        showWelcomeIfNeeded();
+    }
+
+    function deleteProject() {
+        if (!currentProject) return;
+        if (!confirm(`Delete project "${currentProject.name}"? This cannot be undone.`)) return;
+        Store.deleteProject(currentProject.id);
+        currentProject = Store.getActiveProject();
+        if (!currentProject) {
+            currentProject = Store.createProject('My Lab Program');
+        }
+        renderProjectSelector();
+        clearAllChats();
+        renderAll();
+        restoreAllChats();
+        showWelcomeIfNeeded();
+    }
+
     function renderProjectSelector() {
         const select = $('#project-select');
-        const projects = Store.getProjects();
+        const projects = Store.listProjects();
         select.innerHTML = projects.map(p =>
-            `<option value="${p.id}" ${p.id === currentProject.id ? 'selected' : ''}>${p.name}</option>`
+            `<option value="${p.id}" ${p.id === currentProject.id ? 'selected' : ''}>${escHtml(p.name)}</option>`
         ).join('') + '<option value="__new__">+ New Project...</option>';
     }
 
     function bindProjectControls() {
         $('#project-select').addEventListener('change', (e) => {
             if (e.target.value === '__new__') {
-                const name = prompt('Project name:');
-                if (name) {
-                    currentProject = Store.createProject(name);
-                    renderProjectSelector();
-                    clearAllChats();
-                    renderPhase();
-                    showWelcomeMessages();
-                } else {
+                createProject();
+                if (currentProject) {
                     e.target.value = currentProject.id;
                 }
             } else {
-                Store.setActiveProject(e.target.value);
-                currentProject = Store.getActiveProject();
-                clearAllChats();
-                restoreChats();
-                renderPhase();
+                loadProject(e.target.value);
             }
         });
 
-        $('#btn-new-project').addEventListener('click', () => {
-            const name = prompt('Project name:');
-            if (name) {
-                currentProject = Store.createProject(name);
-                renderProjectSelector();
-                clearAllChats();
-                renderPhase();
-                showWelcomeMessages();
-            }
-        });
+        $('#btn-new-project').addEventListener('click', () => createProject());
+        $('#btn-delete-project').addEventListener('click', () => deleteProject());
 
-        // Export
-        $('#btn-export').addEventListener('click', () => {
-            const json = Store.exportProject(currentProject.id);
-            if (json) {
-                const blob = new Blob([json], { type: 'application/json' });
-                const a = document.createElement('a');
-                a.href = URL.createObjectURL(blob);
-                a.download = `${currentProject.name.replace(/\s+/g, '-')}.json`;
-                a.click();
-            }
-        });
-
-        // Import
+        // Sidebar export/import
+        $('#btn-export').addEventListener('click', () => exportProject());
         $('#btn-import').addEventListener('click', () => $('#import-file').click());
         $('#import-file').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                try {
-                    currentProject = Store.importProject(ev.target.result);
-                    renderProjectSelector();
-                    clearAllChats();
-                    restoreChats();
-                    renderPhase();
-                } catch (err) {
-                    alert('Import failed: ' + err.message);
-                }
-            };
-            reader.readAsText(file);
+            importProjectFromFile(file);
             e.target.value = '';
         });
     }
 
-    // ── Navigation ──
-    function bindNavigation() {
-        $$('.nav-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const phase = link.dataset.phase;
-                if (!phase) return;
-                switchPhase(phase);
-            });
-        });
-    }
+    // ══════════════════════════════════════════════════════════════
+    //  Chat Handling (shared across phases)
+    // ══════════════════════════════════════════════════════════════
 
-    function switchPhase(phase) {
-        currentPhase = phase;
-        $$('.nav-link').forEach(l => l.classList.toggle('active', l.dataset.phase === phase));
-        $$('.phase').forEach(p => p.classList.toggle('active', p.id === `phase-${phase}`));
-    }
-
-    // ── Context Tabs (Organize phase) ──
-    function bindContextTabs() {
-        $$('.context-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
-                const panel = tab.closest('.context-panel');
-                panel.querySelectorAll('.context-tab').forEach(t => t.classList.remove('active'));
-                panel.querySelectorAll('.context-tab-panel').forEach(p => p.classList.remove('active'));
-                tab.classList.add('active');
-                const target = panel.querySelector(`#tab-${tab.dataset.tab}`);
-                if (target) target.classList.add('active');
-            });
-        });
-    }
-
-    // ── Chat system ──
-    function bindChat(phase) {
-        const input = $(`#${phase}-chat-input`);
-        const sendBtn = $(`#${phase}-chat-send`);
-
+    function bindChat(phaseKey) {
+        const input = $(`#${phaseKey}-chat-input`);
+        const sendBtn = $(`#${phaseKey}-chat-send`);
         if (!input || !sendBtn) return;
 
-        const sendMessage = () => {
+        const doSend = () => {
             const text = input.value.trim();
-            if (!text && pendingFiles.length === 0) return;
-            handleSend(phase, text);
+            if (!text && (phaseKey !== 'phase1' || pendingFiles.length === 0)) return;
+            sendMessage(phaseKey, text);
             input.value = '';
             input.style.height = 'auto';
         };
 
-        sendBtn.addEventListener('click', sendMessage);
+        sendBtn.addEventListener('click', doSend);
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                sendMessage();
+                doSend();
             }
         });
 
@@ -177,96 +200,79 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    async function handleSend(phase, text) {
+    async function sendMessage(phaseKey, text) {
+        const phaseNum = PHASE_NUMBERS[phaseKey];
+        if (!phaseNum) return;
+
         if (!Settings.isConfigured()) {
-            addChatBubble(phase, 'assistant', 'Please configure your AI provider in Settings first.');
-            switchPhase('settings');
+            renderChatMessage(phaseKey, 'assistant', 'Please configure your AI provider in Settings first.');
+            navigateTo('settings');
             return;
         }
 
-        // Handle file attachments for define phase
+        // Handle file attachments for phase 1
         let messageText = text;
-        if (phase === 'define' && pendingFiles.length > 0) {
+        if (phaseKey === 'phase1' && pendingFiles.length > 0) {
             const fileNames = pendingFiles.map(f => f.name).join(', ');
             messageText = text
                 ? `${text}\n\n[Attached files: ${fileNames}]`
                 : `I've uploaded these documents: ${fileNames}. Please analyze them.`;
 
             // Save uploads to project
-            currentProject.uploads = currentProject.uploads || [];
             pendingFiles.forEach(f => {
-                currentProject.uploads.push({
-                    id: Store.uid(),
+                Store.addUpload(currentProject.id, {
                     name: f.name,
                     type: f.type,
-                    size: f.size,
                     content: f.content,
                 });
             });
-            Store.updateProject(currentProject);
-            renderUploads();
+            currentProject = Store.getProject(currentProject.id);
+            Phase1.render(currentProject);
             pendingFiles = [];
             renderAttachments();
         }
 
         // Show user message
-        addChatBubble(phase, 'user', messageText);
-        Store.addChatMessage(currentProject.id, phase, 'user', messageText);
+        renderChatMessage(phaseKey, 'user', messageText);
 
-        // Show typing
-        showTyping(phase, true);
+        // Show typing indicator
+        showTypingIndicator(phaseKey);
 
         try {
             // Refresh project from store
-            currentProject = Store.getActiveProject();
-            const response = await Chat.send(phase, currentProject, messageText);
+            currentProject = Store.getProject(currentProject.id);
 
-            showTyping(phase, false);
+            const result = await Chat.sendMessage(phaseNum, currentProject.id, messageText);
 
-            // Parse structured data from response
-            if (phase === 'define') {
-                const goals = Chat.parseGoalsSummary(response);
-                if (goals) {
-                    currentProject.goals = goals.goals || [];
-                    currentProject.programName = goals.programName;
-                    currentProject.targetAudience = goals.targetAudience;
-                    currentProject.technology = goals.technology;
-                    currentProject.jobTasks = goals.jobTasks;
-                    currentProject.businessObjectives = goals.businessObjectives;
-                    Store.updateProject(currentProject);
-                    renderGoals();
-                }
-            } else if (phase === 'organize') {
-                const curriculum = Chat.parseCurriculum(response);
-                if (curriculum) {
-                    currentProject.curriculum = curriculum;
-                    Store.updateProject(currentProject);
-                    renderCurriculum();
-                }
-            } else if (phase === 'labs') {
-                const blueprints = Chat.parseLabBlueprints(response);
-                if (blueprints) {
-                    currentProject.labBlueprints = blueprints.labBlueprints || [];
-                    currentProject.environmentTemplates = blueprints.environmentTemplates || [];
-                    Store.updateProject(currentProject);
-                    renderLabBlueprints();
+            hideTypingIndicator(phaseKey);
+
+            // Apply structured results to the appropriate phase controller
+            if (result.structured) {
+                const ctrl = PHASE_CONTROLLERS[phaseNum];
+                if (ctrl && typeof ctrl.applyAIResults === 'function') {
+                    ctrl.applyAIResults(result.structured, currentProject.id);
                 }
             }
+
+            // Refresh project after AI results applied
+            currentProject = Store.getProject(currentProject.id);
 
             // Show cleaned response
-            const displayText = Chat.cleanResponseForDisplay(response);
+            const displayText = result.display;
             if (displayText) {
-                addChatBubble(phase, 'assistant', displayText);
-                Store.addChatMessage(currentProject.id, phase, 'assistant', displayText);
+                renderChatMessage(phaseKey, 'assistant', displayText);
             }
+
+            // Update progress indicators
+            updateProgressIndicators();
         } catch (err) {
-            showTyping(phase, false);
-            addChatBubble(phase, 'assistant', `Error: ${err.message}`);
+            hideTypingIndicator(phaseKey);
+            renderChatMessage(phaseKey, 'assistant', `Error: ${err.message}`);
         }
     }
 
-    function addChatBubble(phase, role, content) {
-        const container = $(`#${phase}-chat-messages`);
+    function renderChatMessage(phaseKey, role, content) {
+        const container = $(`#${phaseKey}-chat-messages`);
         if (!container) return;
         const bubble = document.createElement('div');
         bubble.className = `chat-bubble ${role}`;
@@ -275,17 +281,29 @@ document.addEventListener('DOMContentLoaded', () => {
         container.scrollTop = container.scrollHeight;
     }
 
-    function showTyping(phase, show) {
-        const el = $(`#${phase}-chat-typing`);
-        if (el) el.style.display = show ? 'block' : 'none';
-        if (show) {
-            const container = $(`#${phase}-chat-messages`);
-            if (container) container.scrollTop = container.scrollHeight;
-        }
+    function renderChatHistory(phaseKey) {
+        if (!currentProject) return;
+        const container = $(`#${phaseKey}-chat-messages`);
+        if (!container) return;
+        container.innerHTML = '';
+        const history = Store.getChatHistory(currentProject.id, phaseKey);
+        history.forEach(msg => renderChatMessage(phaseKey, msg.role, msg.content));
+    }
+
+    function showTypingIndicator(phaseKey) {
+        const el = $(`#${phaseKey}-chat-typing`);
+        if (el) el.style.display = 'block';
+        const container = $(`#${phaseKey}-chat-messages`);
+        if (container) container.scrollTop = container.scrollHeight;
+    }
+
+    function hideTypingIndicator(phaseKey) {
+        const el = $(`#${phaseKey}-chat-typing`);
+        if (el) el.style.display = 'none';
     }
 
     function formatMessage(text) {
-        // Simple markdown-ish formatting
+        if (!text) return '';
         return text
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
@@ -297,10 +315,10 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/\n/g, '<br>');
     }
 
-    function showWelcomeMessages() {
-        const defineChat = currentProject.defineChat || [];
-        if (defineChat.length === 0) {
-            addChatBubble('define', 'assistant',
+    function showWelcomeIfNeeded() {
+        const history = Store.getChatHistory(currentProject.id, 'phase1');
+        if (history.length === 0) {
+            renderChatMessage('phase1', 'assistant',
                 `Welcome to Lab Designer! I'm here to help you create a hands-on lab training program.\n\n` +
                 `Let's start by understanding what your learners need to be able to do. You can:\n\n` +
                 `- **Upload documents** like job task analyses, job descriptions, or learning objectives using the paperclip icon\n` +
@@ -312,34 +330,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function clearAllChats() {
-        ['define', 'organize', 'labs'].forEach(phase => {
-            const container = $(`#${phase}-chat-messages`);
+        ['phase1', 'phase2', 'phase3', 'phase4'].forEach(phaseKey => {
+            const container = $(`#${phaseKey}-chat-messages`);
             if (container) container.innerHTML = '';
         });
-        renderUploads();
-        renderGoals();
-        renderCurriculum();
-        renderLabBlueprints();
     }
 
-    function restoreChats() {
-        ['define', 'organize', 'labs'].forEach(phase => {
-            const history = currentProject[phase + 'Chat'] || [];
-            history.forEach(msg => addChatBubble(phase, msg.role, msg.content));
+    function restoreAllChats() {
+        ['phase1', 'phase2', 'phase3', 'phase4'].forEach(phaseKey => {
+            renderChatHistory(phaseKey);
         });
-        if ((currentProject.defineChat || []).length === 0) {
-            showWelcomeMessages();
-        }
-        renderUploads();
-        renderGoals();
-        renderCurriculum();
-        renderLabBlueprints();
     }
 
-    // ── File upload (Define phase) ──
+    // ══════════════════════════════════════════════════════════════
+    //  File Upload (Phase 1 paperclip)
+    // ══════════════════════════════════════════════════════════════
+
     function bindFileUpload() {
-        const uploadBtn = $('#define-upload-btn');
-        const fileInput = $('#define-file-input');
+        const uploadBtn = $('#phase1-upload-btn');
+        const fileInput = $('#phase1-file-input');
 
         if (uploadBtn && fileInput) {
             uploadBtn.addEventListener('click', () => fileInput.click());
@@ -360,47 +369,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.target.value = '';
             });
         }
-
-        // Framework upload
-        const fwBtn = $('#btn-upload-framework');
-        const fwInput = $('#framework-file-input');
-        if (fwBtn && fwInput) {
-            fwBtn.addEventListener('click', () => fwInput.click());
-            fwInput.addEventListener('change', (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    currentProject.framework = 'custom';
-                    currentProject.frameworkData = {
-                        name: file.name,
-                        content: ev.target.result,
-                    };
-                    Store.updateProject(currentProject);
-                    $('#framework-select').value = '';
-                    renderFrameworkMapping();
-                };
-                reader.readAsText(file);
-                e.target.value = '';
-            });
-        }
-
-        // Framework select change
-        const fwSelect = $('#framework-select');
-        if (fwSelect) {
-            fwSelect.addEventListener('change', () => {
-                currentProject.framework = fwSelect.value || null;
-                Store.updateProject(currentProject);
-                renderFrameworkMapping();
-            });
-        }
     }
 
     function renderAttachments() {
-        const container = $('#define-attachments');
+        const container = $('#phase1-attachments');
         if (!container) return;
         container.innerHTML = pendingFiles.map((f, i) =>
-            `<span class="chat-attachment-chip">${f.name} <span class="remove" data-idx="${i}">&times;</span></span>`
+            `<span class="chat-attachment-chip">${escHtml(f.name)} <span class="remove" data-idx="${i}">&times;</span></span>`
         ).join('');
         container.querySelectorAll('.remove').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -410,378 +385,114 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // ── Render context panels ──
+    // ══════════════════════════════════════════════════════════════
+    //  Render All Phases
+    // ══════════════════════════════════════════════════════════════
 
-    function renderUploads() {
-        const list = $('#define-uploads-list');
-        if (!list) return;
-        const uploads = currentProject.uploads || [];
-        if (uploads.length === 0) {
-            list.innerHTML = '<div class="empty-state"><p>No documents uploaded yet.</p><p class="hint">Upload job task analyses, job descriptions, learning objectives, or other source documents.</p></div>';
-            return;
-        }
-        list.innerHTML = uploads.map(u => `
-            <div class="upload-item">
-                <div class="upload-item-icon">&#128196;</div>
-                <div class="upload-item-info">
-                    <div class="upload-item-name">${escHtml(u.name)}</div>
-                    <div class="upload-item-meta">${formatFileSize(u.size)}</div>
-                </div>
-                <button class="upload-item-remove" data-id="${u.id}" title="Remove">&times;</button>
-            </div>
-        `).join('');
-        list.querySelectorAll('.upload-item-remove').forEach(btn => {
-            btn.addEventListener('click', () => {
-                currentProject.uploads = currentProject.uploads.filter(u => u.id !== btn.dataset.id);
-                Store.updateProject(currentProject);
-                renderUploads();
-            });
-        });
-    }
+    function renderAll() {
+        if (!currentProject) return;
 
-    function renderGoals() {
-        const summary = $('#define-summary');
-        const goalsList = $('#define-goals-list');
-        if (!summary || !goalsList) return;
-        const goals = currentProject.goals || [];
-        if (goals.length === 0) {
-            summary.style.display = 'none';
-            return;
-        }
-        summary.style.display = 'block';
-        goalsList.innerHTML = goals.map(g => `<div class="goal-item">${escHtml(g)}</div>`).join('');
-    }
-
-    function renderCurriculum() {
-        const container = $('#curriculum-outline');
-        if (!container) return;
-        const curriculum = currentProject.curriculum;
-        if (!curriculum || !curriculum.courses || curriculum.courses.length === 0) {
-            container.innerHTML = '<div class="empty-state"><p>No curriculum generated yet.</p><p class="hint">Complete Phase 1 or ask me to generate a curriculum structure from your goals.</p></div>';
-            return;
-        }
-        container.innerHTML = curriculum.courses.map(course => renderOutlineNode(course, 'course')).join('');
-        bindOutlineInteractions(container);
-    }
-
-    function renderOutlineNode(node, type) {
-        const hasChildren = (type === 'course' && node.modules) ||
-                           (type === 'module' && node.lessons) ||
-                           (type === 'lesson' && (node.topics || node.lab));
-        const childHtml = [];
-
-        if (type === 'course' && node.modules) {
-            node.modules.forEach(m => childHtml.push(renderOutlineNode(m, 'module')));
-        }
-        if (type === 'module' && node.lessons) {
-            node.lessons.forEach(l => childHtml.push(renderOutlineNode(l, 'lesson')));
-        }
-        if (type === 'lesson') {
-            if (node.topics) {
-                node.topics.forEach(t => {
-                    childHtml.push(`
-                        <div class="outline-node">
-                            <div class="outline-node-header">
-                                <span class="outline-toggle"></span>
-                                <span class="outline-node-badge badge-topic">Topic</span>
-                                <span class="outline-node-title">${escHtml(typeof t === 'string' ? t : t.title)}</span>
-                                <div class="outline-node-actions">
-                                    <button class="outline-action-btn" data-action="edit" title="Rename">&#9998;</button>
-                                </div>
-                            </div>
-                        </div>
-                    `);
-                });
-            }
-            if (node.lab) {
-                childHtml.push(renderLabInOutline(node.lab));
+        for (const [num, ctrl] of Object.entries(PHASE_CONTROLLERS)) {
+            if (ctrl && typeof ctrl.render === 'function') {
+                ctrl.render(currentProject);
             }
         }
 
-        return `
-            <div class="outline-node ${hasChildren ? 'expanded' : ''}">
-                <div class="outline-node-header">
-                    ${hasChildren ? '<span class="outline-toggle">&#9654;</span>' : '<span class="outline-toggle"></span>'}
-                    <span class="outline-node-badge badge-${type}">${type}</span>
-                    <span class="outline-node-title">${escHtml(node.title)}</span>
-                    <div class="outline-node-actions">
-                        <button class="outline-action-btn" data-action="edit" title="Rename">&#9998;</button>
-                    </div>
-                </div>
-                ${hasChildren ? `<div class="outline-node-children">${childHtml.join('')}</div>` : ''}
-            </div>
-        `;
+        updateProgressIndicators();
     }
 
-    function renderLabInOutline(lab) {
-        const activities = (lab.activities || []).map((a, i) => `
-            <div class="activity-card">
-                <div class="activity-header">
-                    <span class="activity-number">${i + 1}</span>
-                    <span class="activity-title">${escHtml(a.title)}</span>
-                    ${a.scored ? '<span class="activity-scored">Scored</span>' : ''}
-                </div>
-                <div class="activity-body">
-                    <div class="task-list">
-                        ${(a.tasks || []).map(t => `
-                            <div class="task-item">
-                                <div class="task-check"></div>
-                                <span class="task-text">${escHtml(typeof t === 'string' ? t : t.description)}</span>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `).join('');
+    function updateProgressIndicators() {
+        if (!currentProject) return;
 
-        return `
-            <div class="lab-blueprint">
-                <div class="lab-blueprint-header">
-                    <span class="lab-blueprint-toggle">&#9654;</span>
-                    <span class="lab-blueprint-title">${escHtml(lab.title)}</span>
-                    <span class="lab-blueprint-meta">${lab.duration || 60} min &middot; ${(lab.activities || []).length} activities</span>
-                </div>
-                <div class="lab-blueprint-body">
-                    ${lab.description ? `<div class="lab-blueprint-description">${escHtml(lab.description)}</div>` : ''}
-                    ${activities}
-                </div>
-            </div>
-        `;
+        // Phase 1: has audiences or objectives
+        const p1HasData = (currentProject.audiences && currentProject.audiences.length > 0) ||
+            (currentProject.businessObjectives && currentProject.businessObjectives.length > 0) ||
+            (currentProject.learningObjectives && currentProject.learningObjectives.length > 0);
+        const p1Complete = p1HasData && currentProject.competencies && currentProject.competencies.length > 0;
+        setProgressIcon('phase1', p1Complete ? 'check' : (p1HasData ? 'half' : 'empty'));
+
+        // Phase 2: has curriculum
+        const p2HasData = currentProject.curriculum &&
+            (currentProject.curriculum.children || currentProject.curriculum.courses || []).length > 0;
+        const p2Complete = p2HasData && currentProject.labPlacements && currentProject.labPlacements.length > 0;
+        setProgressIcon('phase2', p2Complete ? 'check' : (p2HasData ? 'half' : 'empty'));
+
+        // Phase 3: has lab blueprints
+        const p3HasData = currentProject.labBlueprints && currentProject.labBlueprints.length > 0;
+        const p3Complete = p3HasData && currentProject.labBlueprints.every(b =>
+            b.approved && b.approved.title && b.approved.description && b.approved.outline
+        );
+        setProgressIcon('phase3', p3Complete ? 'check' : (p3HasData ? 'half' : 'empty'));
+
+        // Phase 4: has environment templates
+        const p4HasData = currentProject.environmentTemplates && currentProject.environmentTemplates.length > 0;
+        const p4Complete = p4HasData && currentProject.exportHistory && currentProject.exportHistory.length > 0;
+        setProgressIcon('phase4', p4Complete ? 'check' : (p4HasData ? 'half' : 'empty'));
     }
 
-    function bindOutlineInteractions(container) {
-        // Toggle expand/collapse
-        container.querySelectorAll('.outline-node-header').forEach(header => {
-            header.addEventListener('click', (e) => {
-                if (e.target.closest('.outline-action-btn') || e.target.closest('.outline-node-title-input')) return;
-                const node = header.closest('.outline-node');
-                node.classList.toggle('expanded');
-            });
-        });
-
-        // Toggle lab blueprints
-        container.querySelectorAll('.lab-blueprint-header').forEach(header => {
-            header.addEventListener('click', () => {
-                header.closest('.lab-blueprint').classList.toggle('expanded');
-            });
-        });
-
-        // Toggle activities
-        container.querySelectorAll('.activity-header').forEach(header => {
-            header.addEventListener('click', () => {
-                header.closest('.activity-card').classList.toggle('expanded');
-            });
-        });
-
-        // Inline edit
-        container.querySelectorAll('.outline-action-btn[data-action="edit"]').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const header = btn.closest('.outline-node-header');
-                const titleEl = header.querySelector('.outline-node-title');
-                const currentText = titleEl.textContent;
-
-                const input = document.createElement('input');
-                input.type = 'text';
-                input.className = 'outline-node-title-input';
-                input.value = currentText;
-                titleEl.replaceWith(input);
-                input.focus();
-                input.select();
-
-                const finish = () => {
-                    const newTitle = input.value.trim() || currentText;
-                    const span = document.createElement('span');
-                    span.className = 'outline-node-title';
-                    span.textContent = newTitle;
-                    input.replaceWith(span);
-                    // Update data (simplified — re-renders on next AI response)
-                    updateCurriculumTitle(currentText, newTitle);
-                };
-
-                input.addEventListener('blur', finish);
-                input.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter') finish();
-                    if (e.key === 'Escape') { input.value = currentText; finish(); }
-                });
-            });
-        });
-    }
-
-    function updateCurriculumTitle(oldTitle, newTitle) {
-        if (!currentProject.curriculum || oldTitle === newTitle) return;
-        // Deep search and replace title in curriculum
-        const replaceInNode = (obj) => {
-            if (!obj) return;
-            if (obj.title === oldTitle) obj.title = newTitle;
-            if (obj.courses) obj.courses.forEach(replaceInNode);
-            if (obj.modules) obj.modules.forEach(replaceInNode);
-            if (obj.lessons) obj.lessons.forEach(replaceInNode);
-            if (obj.lab && obj.lab.title === oldTitle) obj.lab.title = newTitle;
-        };
-        replaceInNode(currentProject.curriculum);
-        Store.updateProject(currentProject);
-    }
-
-    function renderLabBlueprints() {
-        const container = $('#labs-outline');
-        const statsEl = $('#lab-stats');
-        if (!container) return;
-
-        const blueprints = currentProject.labBlueprints || [];
-        const templates = currentProject.environmentTemplates || [];
-
-        if (blueprints.length === 0 && templates.length === 0) {
-            container.innerHTML = '<div class="empty-state"><p>No labs designed yet.</p><p class="hint">Complete the curriculum outline in Phase 2, then I\'ll recommend where to place labs.</p></div>';
-            if (statsEl) statsEl.innerHTML = '';
-            return;
-        }
-
-        // Stats
-        if (statsEl) {
-            const totalDuration = blueprints.reduce((sum, b) => sum + (b.duration || 60), 0);
-            const totalActivities = blueprints.reduce((sum, b) => sum + (b.activities || []).length, 0);
-            statsEl.innerHTML = `
-                <span class="lab-stat"><span class="lab-stat-value">${blueprints.length}</span> labs</span>
-                <span class="lab-stat"><span class="lab-stat-value">${totalActivities}</span> activities</span>
-                <span class="lab-stat"><span class="lab-stat-value">${Math.round(totalDuration / 60)}h ${totalDuration % 60}m</span> total</span>
-                <span class="lab-stat"><span class="lab-stat-value">${templates.length}</span> env templates</span>
-            `;
-        }
-
-        let html = '';
-
-        // Environment templates
-        if (templates.length > 0) {
-            html += '<h4 style="font-size:13px;font-weight:600;margin-bottom:8px;color:#6b7280;">Environment Templates</h4>';
-            templates.forEach(t => {
-                html += `
-                    <div class="lab-blueprint" style="border-color:#d1d5db;">
-                        <div class="lab-blueprint-header" style="background:#f3f4f6;">
-                            <span class="lab-blueprint-toggle" style="color:#374151;">&#9654;</span>
-                            <span class="lab-blueprint-title" style="color:#374151;">&#9881; ${escHtml(t.name)}</span>
-                        </div>
-                        <div class="lab-blueprint-body">
-                            <div class="lab-blueprint-description">${escHtml(t.description || '')}</div>
-                            ${t.virtualMachines ? `<p style="font-size:12px;margin:4px 0;"><strong>VMs:</strong> ${t.virtualMachines.map(v => v.name + ' (' + v.os + ')').join(', ')}</p>` : ''}
-                            ${t.cloudServices ? `<p style="font-size:12px;margin:4px 0;"><strong>Cloud:</strong> ${t.cloudServices.map(c => c.provider + ': ' + c.services.join(', ')).join('; ')}</p>` : ''}
-                            ${t.licenses ? `<p style="font-size:12px;margin:4px 0;"><strong>Licenses:</strong> ${t.licenses.join(', ')}</p>` : ''}
-                            ${t.sampleData ? `<p style="font-size:12px;margin:4px 0;"><strong>Sample Data:</strong> ${escHtml(t.sampleData)}</p>` : ''}
-                        </div>
-                    </div>
-                `;
-            });
-            html += '<h4 style="font-size:13px;font-weight:600;margin:16px 0 8px;color:#6b7280;">Lab Blueprints</h4>';
-        }
-
-        // Lab blueprints
-        blueprints.forEach(lab => {
-            const activities = (lab.activities || []).map((a, i) => `
-                <div class="activity-card">
-                    <div class="activity-header">
-                        <span class="activity-number">${i + 1}</span>
-                        <span class="activity-title">${escHtml(a.title)}</span>
-                        ${a.scored ? '<span class="activity-scored">Scored</span>' : ''}
-                    </div>
-                    <div class="activity-body">
-                        ${a.description ? `<p style="font-size:12px;color:#6b7280;margin-bottom:8px;">${escHtml(a.description)}</p>` : ''}
-                        ${a.estimatedMinutes ? `<p style="font-size:11px;color:#9ca3af;margin-bottom:6px;">~${a.estimatedMinutes} minutes</p>` : ''}
-                        <div class="task-list">
-                            ${(a.tasks || []).map(t => `
-                                <div class="task-item">
-                                    <div class="task-check"></div>
-                                    <span class="task-text">${escHtml(typeof t === 'string' ? t : t.description)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-            `).join('');
-
-            const envTemplate = templates.find(t => t.id === lab.environmentTemplate);
-
-            html += `
-                <div class="lab-blueprint">
-                    <div class="lab-blueprint-header">
-                        <span class="lab-blueprint-toggle">&#9654;</span>
-                        <span class="lab-blueprint-title">${escHtml(lab.title)}</span>
-                        <span class="lab-blueprint-meta">${lab.duration || 60} min &middot; ${(lab.activities || []).length} activities</span>
-                    </div>
-                    <div class="lab-blueprint-body">
-                        ${lab.description ? `<div class="lab-blueprint-description">${escHtml(lab.description)}</div>` : ''}
-                        ${lab.placement ? `<p style="font-size:12px;color:#6b7280;margin-bottom:8px;">&#128205; ${escHtml(lab.placement)}</p>` : ''}
-                        ${envTemplate ? `<p style="font-size:12px;color:#6b7280;margin-bottom:8px;">&#9881; Environment: ${escHtml(envTemplate.name)}</p>` : ''}
-                        ${activities}
-                    </div>
-                </div>
-            `;
-        });
-
-        container.innerHTML = html;
-
-        // Bind interactions
-        container.querySelectorAll('.lab-blueprint-header').forEach(header => {
-            header.addEventListener('click', () => {
-                header.closest('.lab-blueprint').classList.toggle('expanded');
-            });
-        });
-        container.querySelectorAll('.activity-header').forEach(header => {
-            header.addEventListener('click', () => {
-                header.closest('.activity-card').classList.toggle('expanded');
-            });
-        });
-    }
-
-    function renderFrameworkMapping() {
-        const container = $('#framework-mapping');
-        if (!container) return;
-        const fw = currentProject.framework;
-        if (!fw) {
-            container.innerHTML = '<div class="empty-state"><p>Select a framework above to see mapping suggestions.</p></div>';
-            return;
-        }
-        if (fw === 'custom' && currentProject.frameworkData) {
-            container.innerHTML = `<div class="goal-item">Custom framework loaded: ${escHtml(currentProject.frameworkData.name)}</div>
-                <p style="font-size:12px;color:#6b7280;margin-top:8px;">Ask me in the chat to map your curriculum to this framework.</p>`;
-            return;
-        }
-        const info = Frameworks.getById(fw);
-        if (info) {
-            container.innerHTML = `
-                <div class="goal-item"><strong>${escHtml(info.name)}</strong> (${escHtml(info.publisher)})</div>
-                <p style="font-size:12px;color:#6b7280;margin-top:8px;">${escHtml(info.description)}</p>
-                <p style="font-size:12px;color:#6b7280;margin-top:4px;">Ask me in the chat to map your curriculum to this framework.</p>
-            `;
+    function setProgressIcon(phaseKey, state) {
+        const el = $(`#nav-progress-${phaseKey}`);
+        if (!el) return;
+        switch (state) {
+            case 'check':
+                el.innerHTML = '&#9989;'; // checkmark
+                el.title = 'Complete';
+                break;
+            case 'half':
+                el.innerHTML = '&#9680;'; // half circle
+                el.title = 'In progress';
+                break;
+            default:
+                el.innerHTML = '&#9675;'; // empty circle
+                el.title = 'Not started';
+                break;
         }
     }
 
-    // ── Render current phase ──
-    function renderPhase() {
-        renderUploads();
-        renderGoals();
-        renderCurriculum();
-        renderLabBlueprints();
-        renderFrameworkMapping();
-        if (currentProject.framework) {
-            const sel = $('#framework-select');
-            if (sel && currentProject.framework !== 'custom') sel.value = currentProject.framework;
-        }
-    }
+    // ══════════════════════════════════════════════════════════════
+    //  Settings Panel
+    // ══════════════════════════════════════════════════════════════
 
-    // ── Settings ──
-    function bindSettings() {
-        const s = Settings.get();
+    function renderSettings() {
+        const s = Settings.getAll();
 
-        // Populate
         $('#settings-ai-provider').value = s.aiProvider || 'claude';
         $('#settings-api-key').value = s.apiKey || '';
         $('#settings-model').value = s.model || '';
-        $('#settings-endpoint').value = s.endpointUrl || '';
-        $('#settings-target-duration').value = s.targetDuration || 60;
-        $('#settings-activities-per-lab').value = s.activitiesPerLab || 4;
+        $('#settings-endpoint').value = s.customEndpoint || '';
+        $('#settings-default-seat-time').value = s.defaultSeatTime || 45;
+        $('#settings-activities-per-lab').value = s.activitiesPerLab || 5;
+        $('#settings-default-difficulty').value = s.defaultDifficulty || 'intermediate';
 
+        // Branding
+        $('#settings-branding-source-url').value = s.brandingSourceUrl || '';
+        $('#settings-font-heading').value = (s.brandFonts && s.brandFonts.heading) || '';
+        $('#settings-font-body').value = (s.brandFonts && s.brandFonts.body) || '';
+
+        // Brand colors
+        const colors = s.brandColors || {};
+        if (colors.primary) $('#settings-color-primary').value = colors.primary;
+        if (colors.secondary) $('#settings-color-secondary').value = colors.secondary;
+        if (colors.accent) $('#settings-color-accent').value = colors.accent;
+        if (colors.text) $('#settings-color-text').value = colors.text;
+        if (colors.background) $('#settings-color-background').value = colors.background;
+
+        // Logo preview
+        const logoPreview = $('#settings-logo-preview');
+        if (s.logoUrl) {
+            logoPreview.innerHTML = `<img src="${escHtml(s.logoUrl)}" alt="Logo preview" style="max-height:60px;">`;
+        } else {
+            logoPreview.innerHTML = '';
+        }
+
+        // Endpoint field visibility
         toggleEndpointField(s.aiProvider);
 
+        // References
+        renderReferences(s.defaultReferences || []);
+    }
+
+    function bindSettings() {
         // Provider change
         $('#settings-ai-provider').addEventListener('change', (e) => {
             toggleEndpointField(e.target.value);
@@ -805,10 +516,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const resultEl = $('#settings-test-result');
             resultEl.textContent = 'Testing...';
             resultEl.style.color = '#6b7280';
-
-            // Save first
             saveSettings();
-
             const result = await Settings.testConnection();
             resultEl.textContent = result.ok ? 'Connected!' : `Failed: ${result.message}`;
             resultEl.style.color = result.ok ? '#10b981' : '#ef4444';
@@ -822,17 +530,98 @@ document.addEventListener('DOMContentLoaded', () => {
             resultEl.style.color = '#10b981';
             setTimeout(() => { resultEl.textContent = ''; }, 2000);
         });
+
+        // Logo upload
+        $('#settings-logo-upload').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                Settings.set('logoUrl', ev.target.result);
+                const preview = $('#settings-logo-preview');
+                preview.innerHTML = `<img src="${escHtml(ev.target.result)}" alt="Logo preview" style="max-height:60px;">`;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        });
+
+        // Add reference URL
+        $('#settings-add-ref-url').addEventListener('click', () => {
+            const url = prompt('Reference URL:');
+            if (!url) return;
+            Settings.addDefaultReference({
+                id: Store.generateId(),
+                type: 'url',
+                url: url,
+                title: url,
+            });
+            renderReferences(Settings.get('defaultReferences') || []);
+        });
+
+        // Add reference file
+        $('#settings-add-ref-file').addEventListener('click', () => {
+            $('#settings-ref-file-input').click();
+        });
+        $('#settings-ref-file-input').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                Settings.addDefaultReference({
+                    id: Store.generateId(),
+                    type: 'file',
+                    title: file.name,
+                    content: ev.target.result,
+                });
+                renderReferences(Settings.get('defaultReferences') || []);
+            };
+            reader.readAsText(file);
+            e.target.value = '';
+        });
+
+        // Settings import/export buttons
+        const settingsImportBtn = $('#settings-import-project');
+        if (settingsImportBtn) {
+            settingsImportBtn.addEventListener('click', () => {
+                $('#settings-import-file').click();
+            });
+        }
+        const settingsImportFile = $('#settings-import-file');
+        if (settingsImportFile) {
+            settingsImportFile.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                importProjectFromFile(file);
+                e.target.value = '';
+            });
+        }
+        const settingsExportBtn = $('#settings-export-project');
+        if (settingsExportBtn) {
+            settingsExportBtn.addEventListener('click', () => exportProject());
+        }
     }
 
     function saveSettings() {
-        Settings.update({
-            aiProvider: $('#settings-ai-provider').value,
-            apiKey: $('#settings-api-key').value,
-            model: $('#settings-model').value,
-            endpointUrl: $('#settings-endpoint').value,
-            targetDuration: parseInt($('#settings-target-duration').value) || 60,
-            activitiesPerLab: parseInt($('#settings-activities-per-lab').value) || 4,
+        Settings.set('aiProvider', $('#settings-ai-provider').value);
+        Settings.set('apiKey', $('#settings-api-key').value);
+        Settings.set('model', $('#settings-model').value);
+        Settings.set('customEndpoint', $('#settings-endpoint').value);
+        Settings.set('defaultSeatTime', parseInt($('#settings-default-seat-time').value) || 45);
+        Settings.set('activitiesPerLab', parseInt($('#settings-activities-per-lab').value) || 5);
+        Settings.set('defaultDifficulty', $('#settings-default-difficulty').value);
+        Settings.set('brandingSourceUrl', $('#settings-branding-source-url').value);
+        Settings.set('brandColors', {
+            primary: $('#settings-color-primary').value,
+            secondary: $('#settings-color-secondary').value,
+            accent: $('#settings-color-accent').value,
+            text: $('#settings-color-text').value,
+            background: $('#settings-color-background').value,
         });
+        Settings.set('brandFonts', {
+            heading: $('#settings-font-heading').value,
+            body: $('#settings-font-body').value,
+        });
+        Settings.save();
     }
 
     function toggleEndpointField(provider) {
@@ -840,18 +629,69 @@ document.addEventListener('DOMContentLoaded', () => {
         if (group) group.style.display = provider === 'custom' ? 'block' : 'none';
     }
 
-    // ── Utilities ──
+    function renderReferences(refs) {
+        const container = $('#settings-references-list');
+        if (!container) return;
+        if (!refs || refs.length === 0) {
+            container.innerHTML = '<div class="empty-state"><p>No default references added.</p></div>';
+            return;
+        }
+        container.innerHTML = refs.map(ref => `
+            <div class="reference-item" data-id="${ref.id}">
+                <span class="reference-icon">${ref.type === 'url' ? '&#128279;' : '&#128196;'}</span>
+                <span class="reference-title">${escHtml(ref.title || ref.url || ref.name || 'Untitled')}</span>
+                <button class="reference-remove" data-ref-id="${ref.id}" title="Remove">&times;</button>
+            </div>
+        `).join('');
+        container.querySelectorAll('.reference-remove').forEach(btn => {
+            btn.addEventListener('click', () => {
+                Settings.removeDefaultReference(btn.dataset.refId);
+                renderReferences(Settings.get('defaultReferences') || []);
+            });
+        });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  Import / Export
+    // ══════════════════════════════════════════════════════════════
+
+    function exportProject() {
+        if (!currentProject) return;
+        const json = Store.exportProject(currentProject.id);
+        if (json) {
+            const blob = new Blob([json], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${currentProject.name.replace(/\s+/g, '-')}.json`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        }
+    }
+
+    function importProjectFromFile(file) {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            try {
+                currentProject = Store.importProject(ev.target.result);
+                renderProjectSelector();
+                clearAllChats();
+                restoreAllChats();
+                renderAll();
+            } catch (err) {
+                alert('Import failed: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    //  Utilities
+    // ══════════════════════════════════════════════════════════════
+
     function escHtml(str) {
         if (!str) return '';
         const div = document.createElement('div');
         div.textContent = str;
         return div.innerHTML;
-    }
-
-    function formatFileSize(bytes) {
-        if (!bytes) return '';
-        if (bytes < 1024) return bytes + ' B';
-        if (bytes < 1048576) return Math.round(bytes / 1024) + ' KB';
-        return (bytes / 1048576).toFixed(1) + ' MB';
     }
 });
